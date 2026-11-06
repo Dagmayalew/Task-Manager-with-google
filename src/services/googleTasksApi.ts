@@ -30,13 +30,8 @@ export const googleTasksService = {
     const items = data.items || [];
 
     const colors = [
-      '#6366f1', // Indigo
-      '#ec4899', // Pink
-      '#06b6d4', // Cyan
-      '#10b981', // Emerald
-      '#f59e0b', // Amber
-      '#8b5cf6', // Purple
-      '#3b82f6', // Blue
+      '#2563eb', // Color 1: Cobalt Blue
+      '#e11d48', // Color 2: Swiss Vermilion
     ];
 
     return items.map((list: any, index: number) => ({
@@ -70,7 +65,7 @@ export const googleTasksService = {
       id: data.id,
       googleListId: data.id,
       title: data.title,
-      color: '#6366f1',
+      color: '#2563eb', // Color 1: Cobalt Blue
       updatedAt: data.updated || new Date().toISOString(),
     };
   },

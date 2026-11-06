@@ -15,20 +15,20 @@ const DEFAULT_LISTS: TaskList[] = [
   {
     id: 'default_my_tasks',
     title: 'My Tasks',
-    color: '#6366f1',
+    color: '#2563eb', // Color 1: Cobalt Blue
     isDefault: true,
     updatedAt: new Date().toISOString(),
   },
   {
     id: 'default_work',
     title: 'Work & Projects',
-    color: '#06b6d4',
+    color: '#e11d48', // Color 2: Swiss Vermilion
     updatedAt: new Date().toISOString(),
   },
   {
     id: 'default_personal',
     title: 'Personal',
-    color: '#10b981',
+    color: '#2563eb', // Color 1: Cobalt Blue
     updatedAt: new Date().toISOString(),
   },
 ];
@@ -223,5 +223,15 @@ export const storageService = {
 
   setDisplayMode(mode: string) {
     localStorage.setItem(STORAGE_KEYS.DISPLAY_MODE, mode);
+  },
+
+  // Theme mode ('light' | 'dark')
+  getTheme(): 'light' | 'dark' {
+    const saved = localStorage.getItem(STORAGE_KEYS.THEME_MODE);
+    return (saved === 'dark' || saved === 'light') ? saved : 'light';
+  },
+
+  setTheme(theme: 'light' | 'dark') {
+    localStorage.setItem(STORAGE_KEYS.THEME_MODE, theme);
   },
 };

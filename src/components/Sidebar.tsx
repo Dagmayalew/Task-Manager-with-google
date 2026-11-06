@@ -1,14 +1,7 @@
 import React, { useState } from 'react';
 import { 
-  Calendar as CalendarIcon, 
-  CheckCircle2, 
-  Clock, 
   FolderPlus, 
-  Inbox, 
-  Star, 
   Trash2, 
-  ListTodo,
-  Layers,
   ChevronRight
 } from 'lucide-react';
 import { TaskList, ViewFilter, TaskItem } from '../types';
@@ -57,165 +50,107 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  const formatLastSync = (timestamp: string | null) => {
-    if (!timestamp) return 'Never synced';
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
+  const navItems: Array<{
+    id: ViewFilter;
+    index: string;
+    label: string;
+    count?: number;
+    listId?: string;
+  }> = [
+    { id: 'today', index: '01', label: 'Today', count: todayCount },
+    { id: 'upcoming', index: '02', label: 'Upcoming', count: upcomingCount },
+    { id: 'calendar', index: '03', label: 'Schedule', count: undefined },
+    { id: 'list', index: '04', label: 'All Tasks', count: allCount, listId: 'all' },
+    { id: 'starred', index: '05', label: 'Starred', count: starredCount },
+    { id: 'completed', index: '06', label: 'Completed', count: completedCount },
+  ];
 
   return (
-    <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col h-full select-none shrink-0">
-      {/* Navigation views */}
-      <div className="p-3 space-y-1">
-        <button
-          onClick={() => onSelectView('today')}
-          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition ${
-            currentView === 'today'
-              ? 'bg-indigo-600/20 text-indigo-400 font-semibold'
-              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-          }`}
-        >
-          <div className="flex items-center gap-2.5">
-            <Clock className="w-4 h-4 text-amber-400" />
-            <span>Today</span>
-          </div>
-          {todayCount > 0 && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
-              {todayCount}
-            </span>
-          )}
-        </button>
+    <aside className="w-60 bg-stone-50/70 dark:bg-neutral-950/70 border-r border-neutral-200/80 dark:border-neutral-800/80 flex flex-col h-full select-none shrink-0 transition-colors">
+      {/* Swiss Editorial Navigation */}
+      <div className="p-3 space-y-0.5">
+        <div className="px-3 py-2 text-[10px] font-mono font-medium tracking-widest text-neutral-400 dark:text-neutral-500 uppercase">
+          Views
+        </div>
 
-        <button
-          onClick={() => onSelectView('upcoming')}
-          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition ${
-            currentView === 'upcoming'
-              ? 'bg-indigo-600/20 text-indigo-400 font-semibold'
-              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-          }`}
-        >
-          <div className="flex items-center gap-2.5">
-            <CalendarIcon className="w-4 h-4 text-blue-400" />
-            <span>Upcoming (7 Days)</span>
-          </div>
-          {upcomingCount > 0 && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
-              {upcomingCount}
-            </span>
-          )}
-        </button>
+        {navItems.map((item) => {
+          const isSelected = item.id === 'list' && item.listId === 'all'
+            ? currentView === 'list' && activeListId === 'all'
+            : currentView === item.id;
 
-        <button
-          onClick={() => onSelectView('calendar')}
-          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition ${
-            currentView === 'calendar'
-              ? 'bg-indigo-600/20 text-indigo-400 font-semibold'
-              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-          }`}
-        >
-          <div className="flex items-center gap-2.5">
-            <Layers className="w-4 h-4 text-emerald-400" />
-            <span>Calendar Schedule</span>
-          </div>
-          <span className="text-[10px] uppercase font-semibold text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800/40">
-            Time Block
-          </span>
-        </button>
+          const isUrgentOrToday = item.id === 'today' && item.count !== undefined && item.count > 0;
 
-        <button
-          onClick={() => onSelectView('starred')}
-          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition ${
-            currentView === 'starred'
-              ? 'bg-indigo-600/20 text-indigo-400 font-semibold'
-              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-          }`}
-        >
-          <div className="flex items-center gap-2.5">
-            <Star className="w-4 h-4 text-amber-300 fill-amber-300/30" />
-            <span>Starred</span>
-          </div>
-          {starredCount > 0 && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
-              {starredCount}
-            </span>
-          )}
-        </button>
+          return (
+            <button
+              key={item.id + (item.listId || '')}
+              onClick={() => onSelectView(item.id, item.listId)}
+              className={`w-full flex items-center justify-between px-3 py-1.5 rounded-md text-xs transition-colors group ${
+                isSelected
+                  ? 'bg-blue-600 text-white font-semibold shadow-2xs'
+                  : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-850'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <span className={`font-mono text-[10px] tabular-nums ${
+                  isSelected ? 'text-blue-200' : 'text-neutral-400 dark:text-neutral-600'
+                }`}>
+                  {item.index}
+                </span>
+                <span>{item.label}</span>
+              </div>
 
-        <button
-          onClick={() => onSelectView('list', 'all')}
-          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition ${
-            currentView === 'list' && activeListId === 'all'
-              ? 'bg-indigo-600/20 text-indigo-400 font-semibold'
-              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-          }`}
-        >
-          <div className="flex items-center gap-2.5">
-            <Inbox className="w-4 h-4 text-indigo-400" />
-            <span>All Tasks</span>
-          </div>
-          {allCount > 0 && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
-              {allCount}
-            </span>
-          )}
-        </button>
-
-        <button
-          onClick={() => onSelectView('completed')}
-          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition ${
-            currentView === 'completed'
-              ? 'bg-indigo-600/20 text-indigo-400 font-semibold'
-              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-          }`}
-        >
-          <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            <span>Completed</span>
-          </div>
-          {completedCount > 0 && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
-              {completedCount}
-            </span>
-          )}
-        </button>
+              {item.count !== undefined && item.count > 0 && (
+                <span className={`font-mono text-[11px] tabular-nums ${
+                  isSelected 
+                    ? 'text-blue-100' 
+                    : isUrgentOrToday 
+                    ? 'text-rose-600 dark:text-rose-400 font-bold' 
+                    : 'text-neutral-400 dark:text-neutral-500'
+                }`}>
+                  {item.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
-      <div className="h-px bg-slate-800 my-1 mx-3" />
+      <div className="h-px bg-neutral-200/80 dark:bg-neutral-800/80 my-2 mx-3" />
 
-      {/* Task Lists Header */}
-      <div className="px-4 py-2 flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider">
-        <span>Task Lists</span>
+      {/* Task Lists Section */}
+      <div className="px-4 py-1.5 flex items-center justify-between text-[10px] font-mono font-medium tracking-widest text-neutral-400 dark:text-neutral-500 uppercase">
+        <span>Lists</span>
         <button
           onClick={() => setIsAddingList(true)}
           title="Create New Task List"
-          className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition"
+          className="p-0.5 text-blue-600 dark:text-blue-400 hover:text-blue-700 transition"
         >
           <FolderPlus className="w-3.5 h-3.5" />
         </button>
       </div>
 
-      {/* New list form */}
+      {/* Quick Add List Form */}
       {isAddingList && (
-        <form onSubmit={handleCreateList} className="px-3 pb-2">
-          <div className="flex items-center gap-1.5 bg-slate-950 border border-indigo-500 rounded-lg p-1.5">
+        <form onSubmit={handleCreateList} className="px-3 pb-2 pt-1">
+          <div className="flex items-center gap-1.5 bg-white dark:bg-neutral-900 border border-blue-600 rounded-md p-1">
             <input
               type="text"
               value={newListTitle}
               onChange={(e) => setNewListTitle(e.target.value)}
-              placeholder="List name..."
+              placeholder="List title..."
               autoFocus
-              className="w-full bg-transparent text-xs text-slate-100 outline-none px-1"
+              className="w-full bg-transparent text-xs text-neutral-900 dark:text-neutral-100 outline-none px-1"
             />
             <button
               type="submit"
-              className="px-2 py-0.5 bg-indigo-600 text-white rounded text-[11px] font-medium hover:bg-indigo-500"
+              className="px-2 py-0.5 bg-blue-600 text-white rounded text-[10px] font-semibold"
             >
               Add
             </button>
             <button
               type="button"
               onClick={() => setIsAddingList(false)}
-              className="text-slate-400 text-xs px-1 hover:text-white"
+              className="text-neutral-400 text-xs px-1 hover:text-neutral-900 dark:hover:text-white"
             >
               ✕
             </button>
@@ -224,7 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       {/* Task Lists Items */}
-      <div className="flex-1 overflow-y-auto px-3 space-y-1">
+      <div className="flex-1 overflow-y-auto px-3 space-y-0.5">
         {lists.map((list) => {
           const listTasksCount = tasks.filter(t => t.listId === list.id && !t.completed).length;
           const isSelected = currentView === 'list' && activeListId === list.id;
@@ -232,24 +167,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
           return (
             <div
               key={list.id}
-              className={`group flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+              className={`group flex items-center justify-between px-3 py-1.5 rounded-md text-xs transition-colors cursor-pointer ${
                 isSelected
-                  ? 'bg-slate-800 text-indigo-400 font-semibold'
-                  : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                  ? 'bg-blue-600 text-white font-semibold shadow-2xs'
+                  : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-850'
               }`}
               onClick={() => onSelectView('list', list.id)}
             >
-              <div className="flex items-center gap-2.5 truncate">
+              <div className="flex items-center gap-2 truncate">
                 <span
-                  className="w-2.5 h-2.5 rounded-full shrink-0"
-                  style={{ backgroundColor: list.color || '#6366f1' }}
+                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                  style={{ backgroundColor: isSelected ? '#ffffff' : (list.color || '#2563eb') }}
                 />
-                <span className="truncate text-xs">{list.title}</span>
+                <span className="truncate">{list.title}</span>
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 {listTasksCount > 0 && (
-                  <span className="text-[11px] text-slate-400 group-hover:text-slate-300">
+                  <span className={`font-mono text-[11px] tabular-nums ${
+                    isSelected ? 'text-blue-100' : 'text-neutral-400 dark:text-neutral-500'
+                  }`}>
                     {listTasksCount}
                   </span>
                 )}
@@ -260,7 +197,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       onDeleteList(list.id, list.title);
                     }}
                     title="Delete list"
-                    className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-400 p-1 rounded transition"
+                    className="opacity-0 group-hover:opacity-100 text-rose-500 hover:text-rose-600 transition"
                   >
                     <Trash2 className="w-3 h-3" />
                   </button>
@@ -271,21 +208,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
         })}
       </div>
 
-      {/* Offline Status & Quick Info Footer */}
-      <div className="p-3 border-t border-slate-800 bg-slate-950/60 text-xs text-slate-400">
-        <div 
+      {/* Bottom Sync / Status Widget */}
+      <div className="p-3 border-t border-neutral-200/80 dark:border-neutral-800/80 text-[11px] text-neutral-400 dark:text-neutral-500">
+        <button
           onClick={onOpenSyncQueue}
-          className="flex items-center justify-between cursor-pointer hover:text-slate-200 transition py-1"
+          className="w-full flex items-center justify-between hover:text-neutral-900 dark:hover:text-neutral-200 transition py-0.5"
         >
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
-            <span className="font-medium text-slate-300">Sync Manager</span>
-          </div>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
-        </div>
-        <div className="text-[11px] text-slate-500 mt-1 flex justify-between items-center">
-          <span>Last sync:</span>
-          <span className="font-mono text-slate-400">{formatLastSync(lastSynced)}</span>
+          <span className="font-mono uppercase tracking-wider text-[10px]">Sync Queue</span>
+          <ChevronRight className="w-3.5 h-3.5" />
+        </button>
+        <div className="text-[10px] font-mono text-neutral-400 dark:text-neutral-500 mt-1">
+          {lastSynced ? `Synced ${new Date(lastSynced).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Local Ready'}
         </div>
       </div>
     </aside>

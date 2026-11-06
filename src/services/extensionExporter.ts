@@ -14,17 +14,14 @@ const generateIconDataUrl = (size: number): string => {
   canvas.height = size;
   const ctx = canvas.getContext('2d');
   if (ctx) {
-    // Background rounded rect gradient
-    const grad = ctx.createLinearGradient(0, 0, size, size);
-    grad.addColorStop(0, '#6366f1');
-    grad.addColorStop(1, '#8b5cf6');
-    ctx.fillStyle = grad;
+    // Solid Cobalt Blue canvas
+    ctx.fillStyle = '#2563eb';
     ctx.beginPath();
     const radius = size * 0.22;
     ctx.roundRect ? ctx.roundRect(0, 0, size, size, radius) : ctx.rect(0, 0, size, size);
     ctx.fill();
 
-    // Checkmark / Layer icon symbol
+    // Checkmark symbol in white
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = Math.max(2, size * 0.1);
     ctx.lineCap = 'round';
@@ -34,6 +31,12 @@ const generateIconDataUrl = (size: number): string => {
     ctx.lineTo(size * 0.45, size * 0.7);
     ctx.lineTo(size * 0.72, size * 0.32);
     ctx.stroke();
+
+    // Swiss Vermilion accent point
+    ctx.fillStyle = '#e11d48';
+    ctx.beginPath();
+    ctx.arc(size * 0.78, size * 0.25, Math.max(1.5, size * 0.08), 0, Math.PI * 2);
+    ctx.fill();
   }
   return canvas.toDataURL('image/png');
 };
@@ -117,7 +120,7 @@ async function updateBadge() {
     
     if (pendingToday > 0) {
       chrome.action.setBadgeText({ text: String(pendingToday) });
-      chrome.action.setBadgeBackgroundColor({ color: '#4f46e5' });
+      chrome.action.setBadgeBackgroundColor({ color: '#e11d48' });
     } else {
       chrome.action.setBadgeText({ text: '' });
     }
@@ -189,8 +192,8 @@ body {
   width: 380px;
   height: 520px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background-color: #0f172a;
-  color: #f8fafc;
+  background-color: #fafaf9;
+  color: #171717;
   display: flex;
   flex-direction: column;
 }
@@ -198,92 +201,93 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid #1e293b;
-  background-color: #0b1120;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e5e5e5;
+  background-color: #ffffff;
 }
 .logo {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 700;
-  font-size: 14px;
-  color: #818cf8;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  color: #171717;
 }
 .actions button {
   background: transparent;
   border: none;
-  color: #94a3b8;
+  color: #737373;
   cursor: pointer;
   padding: 4px;
-  border-radius: 4px;
 }
 .actions button:hover {
-  color: #f8fafc;
-  background: #1e293b;
+  color: #171717;
 }
 .quick-add {
-  padding: 12px 16px;
+  padding: 10px 14px;
+  background: #ffffff;
+  border-bottom: 1px solid #f0f0f0;
 }
 .quick-add input {
   width: 100%;
-  padding: 9px 12px;
-  border-radius: 8px;
-  background: #1e293b;
-  border: 1px solid #334155;
-  color: #f8fafc;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: #fafaf9;
+  border: 1px solid #e5e5e5;
+  color: #171717;
   font-size: 13px;
   outline: none;
 }
 .quick-add input:focus {
-  border-color: #6366f1;
+  border-color: #171717;
 }
 .filter-tabs {
   display: flex;
-  padding: 0 16px 8px 16px;
-  gap: 8px;
+  padding: 8px 14px 4px 14px;
+  gap: 4px;
 }
 .tab {
   background: transparent;
   border: none;
-  color: #94a3b8;
-  font-size: 12px;
+  color: #737373;
+  font-size: 11px;
   font-weight: 500;
-  padding: 4px 10px;
-  border-radius: 9999px;
+  padding: 3px 8px;
+  border-radius: 4px;
   cursor: pointer;
 }
 .tab.active {
-  background: #312e81;
-  color: #a5b4fc;
+  background: #2563eb;
+  color: #ffffff;
 }
 .task-list {
   flex: 1;
   overflow-y: auto;
-  padding: 0 16px 12px 16px;
+  padding: 4px 14px 10px 14px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
 }
 .task-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px;
-  background: #1e293b;
-  border-radius: 6px;
-  border: 1px solid #334155;
-  transition: all 0.15s;
+  padding: 8px 4px;
+  border-bottom: 1px solid #f0f0f0;
+  transition: opacity 0.15s;
+}
+.task-item.completed {
+  opacity: 0.4;
 }
 .task-item.completed .task-title {
   text-decoration: line-through;
-  color: #64748b;
+  color: #737373;
 }
 .task-checkbox {
   cursor: pointer;
-  width: 16px;
-  height: 16px;
-  accent-color: #6366f1;
+  width: 15px;
+  height: 15px;
+  accent-color: #2563eb;
 }
 .task-content {
   flex: 1;
@@ -291,40 +295,38 @@ body {
 }
 .task-title {
   font-size: 13px;
-  color: #f1f5f9;
+  color: #171717;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .task-badge {
   font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: #334155;
-  color: #94a3b8;
+  font-family: monospace;
+  color: #737373;
 }
 .footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 16px;
-  border-top: 1px solid #1e293b;
+  padding: 8px 14px;
+  border-top: 1px solid #e5e5e5;
   font-size: 11px;
-  color: #64748b;
-  background: #0b1120;
+  color: #737373;
+  background: #ffffff;
 }
 .footer button {
-  background: #1e293b;
-  border: 1px solid #334155;
-  color: #94a3b8;
-  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid #e5e5e5;
+  color: #525252;
+  padding: 3px 6px;
   border-radius: 4px;
   font-size: 11px;
   cursor: pointer;
 }
 .footer button:hover {
-  background: #334155;
-  color: #f8fafc;
+  border-color: #171717;
+  color: #171717;
 }
 `;
 
@@ -590,6 +592,17 @@ export const exportExtensionAsZip = async (clientId?: string): Promise<void> => 
   files.forEach((f) => {
     zip.file(f.path, f.content);
   });
+
+  // Fetch or bundle privacy.html in root of ZIP
+  try {
+    const privacyResp = await fetch('/privacy.html');
+    if (privacyResp.ok) {
+      const privacyHtml = await privacyResp.text();
+      zip.file('privacy.html', privacyHtml);
+    }
+  } catch (e) {
+    // optional offline fallback
+  }
 
   // Add generated icon PNG files in icons/ folder
   const iconSizes = [16, 48, 128];

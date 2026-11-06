@@ -9,7 +9,8 @@ import {
   Smartphone, 
   Sidebar as SidebarIcon,
   LogOut,
-  Layers
+  Sun,
+  Moon
 } from 'lucide-react';
 import { ExtensionDisplayMode } from '../types';
 
@@ -19,6 +20,8 @@ interface NavbarProps {
   isSyncing: boolean;
   pendingSyncCount: number;
   displayMode: ExtensionDisplayMode;
+  theme: 'light' | 'dark';
+  onToggleTheme: () => void;
   onSetDisplayMode: (mode: ExtensionDisplayMode) => void;
   onLogin: () => void;
   onLogout: () => void;
@@ -33,6 +36,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   isSyncing,
   pendingSyncCount,
   displayMode,
+  theme,
+  onToggleTheme,
   onSetDisplayMode,
   onLogin,
   onLogout,
@@ -41,31 +46,31 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenSyncQueueModal,
 }) => {
   return (
-    <header className="h-14 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-4 flex items-center justify-between sticky top-0 z-40 select-none">
-      {/* Brand logo & title */}
+    <header className="h-13 border-b border-neutral-200/80 dark:border-neutral-800/80 bg-stone-50/90 dark:bg-neutral-950/90 backdrop-blur-md px-5 flex items-center justify-between sticky top-0 z-40 select-none transition-colors">
+      {/* Brand logo & title - Swiss Grotesque typography */}
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
-          <Layers className="w-4 h-4" />
+        <div className="w-5 h-5 rounded-xs bg-blue-600 flex items-center justify-center text-white font-mono text-xs font-bold tracking-tighter">
+          C
         </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-100 text-sm tracking-tight">Chronotask</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-              Extension
-            </span>
-          </div>
+        <div className="flex items-baseline gap-2">
+          <span className="font-semibold tracking-tight text-neutral-900 dark:text-neutral-100 text-sm">
+            Chronotask
+          </span>
+          <span className="font-mono text-[10px] text-blue-600 dark:text-blue-400 uppercase tracking-widest font-semibold">
+            Studio
+          </span>
         </div>
       </div>
 
-      {/* Simulator Mode Selector */}
-      <div className="hidden md:flex items-center p-0.5 bg-slate-950/80 rounded-lg border border-slate-800">
+      {/* Simulator Mode Segmented Control - Architectural minimal tabs */}
+      <div className="hidden md:flex items-center border border-neutral-200 dark:border-neutral-800 bg-neutral-100/60 dark:bg-neutral-900/60 p-0.5 rounded-md text-xs font-medium">
         <button
           onClick={() => onSetDisplayMode('desktop')}
-          title="Full Desktop Dashboard"
-          className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition ${
+          title="Full Studio Workspace"
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-sm transition-all ${
             displayMode === 'desktop'
-              ? 'bg-slate-800 text-white shadow-xs'
-              : 'text-slate-400 hover:text-slate-200'
+              ? 'bg-white dark:bg-neutral-800 text-blue-600 dark:text-blue-400 shadow-2xs font-semibold'
+              : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200'
           }`}
         >
           <Monitor className="w-3.5 h-3.5" />
@@ -73,23 +78,23 @@ export const Navbar: React.FC<NavbarProps> = ({
         </button>
         <button
           onClick={() => onSetDisplayMode('popup')}
-          title="Simulate Chrome Extension Popup (380x560px)"
-          className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition ${
+          title="Simulate Chrome Extension Popup (380 × 580 px)"
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-sm transition-all ${
             displayMode === 'popup'
-              ? 'bg-indigo-600 text-white shadow-xs'
-              : 'text-slate-400 hover:text-slate-200'
+              ? 'bg-white dark:bg-neutral-800 text-blue-600 dark:text-blue-400 shadow-2xs font-semibold'
+              : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200'
           }`}
         >
           <Smartphone className="w-3.5 h-3.5" />
-          <span>Popup (Ext)</span>
+          <span>Popup (380px)</span>
         </button>
         <button
           onClick={() => onSetDisplayMode('sidepanel')}
-          title="Simulate Chrome Extension Side Panel (360px)"
-          className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition ${
+          title="Simulate Chrome Extension Side Panel (360 px)"
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-sm transition-all ${
             displayMode === 'sidepanel'
-              ? 'bg-indigo-600 text-white shadow-xs'
-              : 'text-slate-400 hover:text-slate-200'
+              ? 'bg-white dark:bg-neutral-800 text-blue-600 dark:text-blue-400 shadow-2xs font-semibold'
+              : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200'
           }`}
         >
           <SidebarIcon className="w-3.5 h-3.5" />
@@ -97,104 +102,94 @@ export const Navbar: React.FC<NavbarProps> = ({
         </button>
       </div>
 
-      {/* Right Controls: Sync status, Extension Export, Google Auth */}
-      <div className="flex items-center gap-2.5">
-        {/* Offline / Online Status Pill */}
-        <div 
+      {/* Right Controls: Sync status, Theme toggle, Extension Export, Google Auth */}
+      <div className="flex items-center gap-3">
+        {/* Offline / Online Status - 2-color indicator */}
+        <button
           onClick={onOpenSyncQueueModal}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border cursor-pointer transition ${
-            isOnline 
-              ? 'bg-emerald-950/40 text-emerald-400 border-emerald-800/50 hover:bg-emerald-900/40' 
-              : 'bg-amber-950/40 text-amber-400 border-amber-800/50 hover:bg-amber-900/40'
-          }`}
-          title={isOnline ? 'Online - All changes ready to sync' : 'Offline Mode - Saving locally'}
+          className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 transition py-1 px-1.5"
+          title={isOnline ? 'Online - Local data synced' : 'Offline - Queued locally'}
         >
-          {isOnline ? (
-            <>
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <Wifi className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Online</span>
-            </>
-          ) : (
-            <>
-              <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-              <WifiOff className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Offline</span>
-            </>
-          )}
-
+          <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-blue-600' : 'bg-rose-600'}`} />
+          <span className="font-mono text-[11px] tracking-wide uppercase">
+            {isOnline ? 'Online' : 'Offline'}
+          </span>
           {pendingSyncCount > 0 && (
-            <span className="ml-1 px-1.5 py-0.2 rounded-full bg-indigo-500 text-white text-[10px] font-bold">
-              {pendingSyncCount}
+            <span className="font-mono text-[10px] text-rose-600 dark:text-rose-400 font-semibold">
+              ({pendingSyncCount})
             </span>
           )}
-        </div>
+        </button>
 
         {/* Sync Now Button */}
         {user && (
           <button
             onClick={onSyncNow}
             disabled={isSyncing || !isOnline}
-            title="Sync with Google Tasks & Calendar"
-            className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition disabled:opacity-40"
+            title="Synchronize Google Tasks & Calendar"
+            className="p-1.5 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 rounded hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50 transition disabled:opacity-40"
           >
-            <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin text-indigo-400' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-neutral-900 dark:text-neutral-100' : ''}`} />
           </button>
         )}
 
-        {/* Extension Package Modal Button */}
+        {/* Theme Mode Toggle (Sun / Moon) */}
+        <button
+          onClick={onToggleTheme}
+          title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} theme`}
+          className="p-1.5 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 rounded transition hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60"
+        >
+          {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+        </button>
+
+        {/* Extension Package Modal Button - Minimalist border */}
         <button
           onClick={onOpenExtensionModal}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-medium transition shadow-xs"
-          title="View Chrome Extension files & Download Unpacked Package"
+          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 transition"
+          title="Download Chrome Extension package"
         >
-          <Puzzle className="w-3.5 h-3.5 text-indigo-400" />
-          <span className="hidden sm:inline">Extension Setup</span>
+          <Puzzle className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Extension</span>
         </button>
 
         {/* Google Authentication */}
         {user ? (
-          <div className="flex items-center gap-2 pl-1 border-l border-slate-800">
+          <div className="flex items-center gap-2 pl-2 border-l border-neutral-200 dark:border-neutral-800">
             {user.photoURL ? (
               <img
                 src={user.photoURL}
                 alt={user.displayName || 'Google Account'}
-                className="w-7 h-7 rounded-full border border-slate-700 object-cover"
+                className="w-6 h-6 rounded-full border border-neutral-200 dark:border-neutral-700 object-cover"
               />
             ) : (
-              <div className="w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-bold">
+              <div className="w-6 h-6 rounded-full bg-neutral-800 dark:bg-neutral-200 text-white dark:text-neutral-900 flex items-center justify-center text-[10px] font-bold">
                 {user.displayName ? user.displayName.charAt(0).toUpperCase() : 'G'}
               </div>
             )}
-            <div className="hidden lg:flex flex-col text-left">
-              <span className="text-xs font-medium text-slate-200 truncate max-w-[110px]">
-                {user.displayName || 'Google User'}
-              </span>
-              <span className="text-[10px] text-slate-400 truncate max-w-[110px]">
-                {user.email}
-              </span>
-            </div>
+            <span className="hidden lg:inline text-xs font-medium text-neutral-700 dark:text-neutral-300 truncate max-w-[100px]">
+              {user.displayName?.split(' ')[0] || 'User'}
+            </span>
             <button
               onClick={onLogout}
               title="Sign Out"
-              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 rounded-lg transition"
+              className="p-1 text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 rounded transition"
             >
               <LogOut className="w-3.5 h-3.5" />
             </button>
           </div>
         ) : (
-          /* Official Google Sign-in button */
+          /* Official Google Sign-in button with minimalist frame */
           <button
             onClick={onLogin}
-            className="flex items-center gap-2 px-3 py-1.5 bg-white text-slate-800 hover:bg-slate-100 rounded-lg text-xs font-medium transition shadow-sm border border-slate-200 active:scale-98"
+            className="flex items-center gap-2 px-2.5 py-1 bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-md text-xs font-medium transition border border-neutral-300 dark:border-neutral-700 active:scale-98 shadow-2xs"
           >
-            <svg className="w-4 h-4 shrink-0" viewBox="0 0 48 48">
+            <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 48 48">
               <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
               <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
               <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
               <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
             </svg>
-            <span className="font-semibold text-slate-700">Sign in with Google</span>
+            <span className="font-medium">Sign in</span>
           </button>
         )}
       </div>

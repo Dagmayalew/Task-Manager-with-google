@@ -3,10 +3,7 @@ import {
   Plus, 
   Calendar, 
   Clock, 
-  Flag, 
-  ChevronDown, 
-  CalendarDays,
-  Sparkles
+  CalendarDays
 } from 'lucide-react';
 import { Priority, TaskList } from '../types';
 
@@ -42,7 +39,6 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
   const [calendarDuration, setCalendarDuration] = useState<number>(30);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Sync selectedListId when activeListId changes (if valid)
   useEffect(() => {
     if (activeListId !== 'all') {
       setSelectedListId(activeListId);
@@ -51,7 +47,6 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
     }
   }, [activeListId, lists]);
 
-  // Global shortcut (Ctrl+K or Cmd+K)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -81,126 +76,108 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
     setTitle('');
     setDueTime('');
     setScheduleToCalendar(false);
-    if (!title.trim()) {
-      setIsExpanded(false);
-    }
-  };
-
-  const priorityColors: Record<Priority, { label: string; text: string; bg: string }> = {
-    low: { label: 'Low', text: 'text-slate-400', bg: 'bg-slate-800' },
-    medium: { label: 'Medium', text: 'text-blue-400', bg: 'bg-blue-950/60' },
-    high: { label: 'High', text: 'text-amber-400', bg: 'bg-amber-950/60' },
-    urgent: { label: 'Urgent', text: 'text-rose-400', bg: 'bg-rose-950/60' },
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 shadow-sm hover:border-slate-700 transition focus-within:border-indigo-500/70 focus-within:ring-2 focus-within:ring-indigo-500/20">
+    <div className="border border-neutral-200/80 dark:border-neutral-800/80 focus-within:border-blue-600 dark:focus-within:border-blue-500 bg-white dark:bg-neutral-900 rounded-lg p-3 transition-colors shadow-2xs">
       <form onSubmit={handleSubmit}>
-        <div className="flex items-center gap-2">
-          <div className="p-1 rounded-md text-indigo-400 bg-indigo-500/10">
-            <Plus className="w-4 h-4" />
-          </div>
+        <div className="flex items-center gap-3">
           <input
             ref={inputRef}
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onFocus={() => setIsExpanded(true)}
-            placeholder="Add task... (Press Enter to save, ⌘K to focus)"
-            className="w-full bg-transparent text-sm text-slate-100 placeholder-slate-500 outline-none"
+            placeholder="Add new task... (Press Enter to save, ⌘K)"
+            className="flex-1 bg-transparent text-sm text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-600 outline-none font-sans"
           />
           <button
             type="submit"
             disabled={!title.trim()}
-            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white text-xs font-semibold rounded-lg shadow-sm transition shrink-0"
+            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-md transition disabled:opacity-30 disabled:cursor-not-allowed shrink-0 shadow-2xs cursor-pointer"
           >
             Add Task
           </button>
         </div>
 
-        {/* Expandable Options Row */}
+        {/* Minimalist Options Drawer */}
         {isExpanded && (
-          <div className="mt-3 pt-3 border-t border-slate-800/80 flex flex-wrap items-center gap-2 text-xs">
-            {/* List Picker */}
-            <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-slate-300">
-              <span className="text-slate-500">List:</span>
+          <div className="mt-3 pt-2.5 border-t border-neutral-100 dark:border-neutral-800/80 flex flex-wrap items-center gap-3 text-xs text-neutral-600 dark:text-neutral-400">
+            {/* List selector */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-neutral-400 font-mono text-[10px] uppercase">List:</span>
               <select
                 value={selectedListId}
                 onChange={(e) => setSelectedListId(e.target.value)}
-                className="bg-transparent text-slate-200 outline-none cursor-pointer"
+                className="bg-transparent text-neutral-800 dark:text-neutral-200 outline-none cursor-pointer text-xs"
               >
                 {lists.map((list) => (
-                  <option key={list.id} value={list.id} className="bg-slate-900 text-slate-200">
+                  <option key={list.id} value={list.id} className="bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200">
                     {list.title}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Due Date Picker */}
-            <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-slate-300">
-              <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+            {/* Due Date */}
+            <div className="flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-neutral-400" />
               <input
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="bg-transparent text-slate-200 outline-none text-xs cursor-pointer"
+                className="bg-transparent text-neutral-800 dark:text-neutral-200 outline-none text-xs font-mono"
               />
             </div>
 
-            {/* Due Time Picker */}
-            <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-slate-300">
-              <Clock className="w-3.5 h-3.5 text-amber-400" />
+            {/* Due Time */}
+            <div className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-neutral-400" />
               <input
                 type="time"
                 value={dueTime}
                 onChange={(e) => setDueTime(e.target.value)}
-                placeholder="Time"
-                className="bg-transparent text-slate-200 outline-none text-xs cursor-pointer"
+                className="bg-transparent text-neutral-800 dark:text-neutral-200 outline-none text-xs font-mono"
               />
             </div>
 
-            {/* Priority Selector */}
-            <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2 py-1">
-              <Flag className={`w-3.5 h-3.5 ${priorityColors[priority].text}`} />
+            {/* Priority */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-neutral-400 font-mono text-[10px] uppercase">Priority:</span>
               <select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value as Priority)}
-                className={`bg-transparent outline-none cursor-pointer font-medium ${priorityColors[priority].text}`}
+                className="bg-transparent outline-none cursor-pointer text-xs font-medium text-neutral-800 dark:text-neutral-200"
               >
-                <option value="low" className="bg-slate-900 text-slate-400">Low Priority</option>
-                <option value="medium" className="bg-slate-900 text-blue-400">Medium Priority</option>
-                <option value="high" className="bg-slate-900 text-amber-400">High Priority</option>
-                <option value="urgent" className="bg-slate-900 text-rose-400">Urgent</option>
+                <option value="low" className="bg-white dark:bg-neutral-900">Low</option>
+                <option value="medium" className="bg-white dark:bg-neutral-900">Medium</option>
+                <option value="high" className="bg-white dark:bg-neutral-900">High</option>
+                <option value="urgent" className="bg-white dark:bg-neutral-900">Urgent</option>
               </select>
             </div>
 
-            {/* Google Calendar Time Block Toggle */}
-            <label className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer select-none transition ${
-              scheduleToCalendar
-                ? 'bg-indigo-950/60 border-indigo-700/60 text-indigo-300'
-                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-300'
-            }`}>
+            {/* Block on Google Calendar */}
+            <label className="flex items-center gap-1.5 cursor-pointer select-none ml-auto">
               <input
                 type="checkbox"
                 checked={scheduleToCalendar}
                 onChange={(e) => setScheduleToCalendar(e.target.checked)}
-                className="accent-indigo-500 rounded"
+                className="rounded-xs border-neutral-300 dark:border-neutral-700 accent-neutral-900 dark:accent-white"
               />
-              <CalendarDays className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Block on Calendar</span>
+              <CalendarDays className="w-3.5 h-3.5 text-neutral-500" />
+              <span className="text-xs">Schedule on Calendar</span>
               {scheduleToCalendar && (
                 <select
                   value={calendarDuration}
                   onChange={(e) => setCalendarDuration(Number(e.target.value))}
                   onClick={(e) => e.stopPropagation()}
-                  className="bg-slate-900 text-indigo-200 border border-indigo-800 rounded px-1 py-0.5 text-[11px] ml-1 outline-none"
+                  className="bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 rounded px-1.5 py-0.5 text-[11px] ml-1 outline-none"
                 >
-                  <option value={15}>15 min</option>
-                  <option value={30}>30 min</option>
-                  <option value={45}>45 min</option>
-                  <option value={60}>1 hour</option>
-                  <option value={90}>1.5 hour</option>
+                  <option value={15}>15m</option>
+                  <option value={30}>30m</option>
+                  <option value={45}>45m</option>
+                  <option value={60}>1h</option>
+                  <option value={90}>1.5h</option>
                 </select>
               )}
             </label>

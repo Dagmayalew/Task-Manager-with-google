@@ -3,8 +3,7 @@ import { User } from 'firebase/auth';
 import { 
   initAuth, 
   googleSignIn, 
-  logout, 
-  getAccessToken 
+  logout 
 } from './services/firebaseAuth';
 import { googleTasksService } from './services/googleTasksApi';
 import { googleCalendarService } from './services/googleCalendarApi';
@@ -31,18 +30,21 @@ import {
   Search, 
   Filter, 
   CheckCircle2, 
-  Calendar, 
-  Clock, 
-  Sparkles,
-  Inbox,
-  AlertCircle,
-  ExternalLink,
-  Smartphone,
+  Smartphone, 
   Sidebar as SidebarIcon,
-  Maximize2
+  Maximize2 
 } from 'lucide-react';
 
 export default function App() {
+  // Theme state: European Minimalist Light by default, with dark toggle
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => storageService.getTheme());
+
+  const handleToggleTheme = () => {
+    const next = theme === 'light' ? 'dark' : 'light';
+    setTheme(next);
+    storageService.setTheme(next);
+  };
+
   // Authentication & token
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -91,7 +93,6 @@ export default function App() {
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      // Trigger auto-sync if logged in
       if (accessToken) {
         processSyncQueueAndFetch(accessToken);
       }
@@ -138,7 +139,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Sync processor: replayer for offline actions + remote fetch
+  // Sync processor
   const processSyncQueueAndFetch = useCallback(async (token: string) => {
     if (!token || !navigator.onLine) return;
     setIsSyncing(true);
@@ -169,7 +170,7 @@ export default function App() {
             await googleCalendarService.deleteCalendarEvent(token, item.payload.eventId);
           }
         } catch (err) {
-          console.warn('Queue replay error for item:', item, err);
+          console.warn('Queue replay error:', item, err);
           item.retries += 1;
           if (item.retries < 3) {
             remainingQueue.push(item);
@@ -180,21 +181,19 @@ export default function App() {
       storageService.saveSyncQueue(remainingQueue);
       setSyncQueue(remainingQueue);
 
-      // 2. Fetch fresh Task Lists from Google Tasks
+      // 2. Fetch fresh Task Lists
       const remoteLists = await googleTasksService.getTaskLists(token);
       if (remoteLists.length > 0) {
         setLists(prev => {
           const listMap = new Map<string, TaskList>();
-          // Keep existing local non-google lists
           prev.forEach(l => {
             if (!l.googleListId) listMap.set(l.id, l);
           });
-          // Add/update remote Google lists
           remoteLists.forEach(l => listMap.set(l.id, l));
           return Array.from(listMap.values());
         });
 
-        // 3. Fetch Tasks from each remote list
+        // 3. Fetch Tasks from remote lists
         const allFetchedTasks: TaskItemType[] = [];
         for (const list of remoteLists) {
           try {
@@ -205,15 +204,12 @@ export default function App() {
           }
         }
 
-        // Merge with local tasks
         if (allFetchedTasks.length > 0) {
           setTasks(prev => {
             const taskMap = new Map<string, TaskItemType>();
-            // Keep local-only tasks
             prev.forEach(t => {
               if (!t.googleTaskId) taskMap.set(t.id, t);
             });
-            // Upsert remote tasks, preserving local priority & star
             allFetchedTasks.forEach(remoteTask => {
               const localMatch = prev.find(p => p.googleTaskId === remoteTask.googleTaskId || p.id === remoteTask.id);
               taskMap.set(remoteTask.id, {
@@ -247,7 +243,7 @@ export default function App() {
     }
   }, []);
 
-  // Google Login handler
+  // Google Login
   const handleLogin = async () => {
     try {
       setIsSyncing(true);
@@ -264,21 +260,21 @@ export default function App() {
     }
   };
 
-  // Google Logout handler
+  // Google Logout
   const handleLogout = async () => {
     await logout();
     setUser(null);
     setAccessToken(null);
   };
 
-  // Manual Sync trigger
+  // Manual Sync
   const handleSyncNow = () => {
     if (accessToken) {
       processSyncQueueAndFetch(accessToken);
     }
   };
 
-  // Set Display Mode (desktop, popup, sidepanel)
+  // Set Display Mode
   const handleSetDisplayMode = (mode: ExtensionDisplayMode) => {
     setDisplayMode(mode);
     storageService.setDisplayMode(mode);
@@ -298,7 +294,7 @@ export default function App() {
     const localList: TaskList = {
       id: 'list_' + Math.random().toString(36).substring(2, 9),
       title,
-      color: '#8b5cf6',
+      color: '#18181b',
       updatedAt: new Date().toISOString(),
     };
 
@@ -309,7 +305,6 @@ export default function App() {
         const created = await googleTasksService.createTaskList(accessToken, title);
         setLists(prev => prev.map(l => l.id === localList.id ? created : l));
       } catch (err) {
-        console.warn('Google list creation error, enqueuing offline sync:', err);
         storageService.enqueueSync('CREATE_LIST', { title, localId: localList.id });
         setSyncQueue(storageService.loadSyncQueue());
       }
@@ -324,24 +319,21 @@ export default function App() {
     setConfirmDialog({
       isOpen: true,
       title: 'Delete Task List',
-      message: `Are you sure you want to delete "${listTitle}" and all tasks contained in it? This will remove the list from both local storage and Google Tasks. This action cannot be undone.`,
+      message: `Delete "${listTitle}" and all associated tasks? This removes the list locally and from Google Tasks.`,
       onConfirm: async () => {
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
         const targetList = lists.find(l => l.id === listId);
 
-        // Remove locally
         setLists(prev => prev.filter(l => l.id !== listId));
         setTasks(prev => prev.filter(t => t.listId !== listId));
         if (activeListId === listId) {
           setActiveListId('all');
         }
 
-        // Delete from Google Tasks if synced
         if (targetList?.googleListId && accessToken && isOnline) {
           try {
             await googleTasksService.deleteTaskList(accessToken, targetList.googleListId);
           } catch (e) {
-            console.warn('Failed deleting list from Google Tasks, enqueuing delete:', e);
             storageService.enqueueSync('DELETE_LIST', { googleListId: targetList.googleListId });
             setSyncQueue(storageService.loadSyncQueue());
           }
@@ -378,7 +370,6 @@ export default function App() {
 
     setTasks(prev => [newTask, ...prev]);
 
-    // Handle Google Tasks sync
     if (accessToken && isOnline) {
       try {
         const targetList = lists.find(l => l.id === params.listId);
@@ -386,7 +377,6 @@ export default function App() {
         const created = await googleTasksService.createTask(accessToken, listToUse, newTask);
 
         let calEventId: string | undefined = undefined;
-        // Schedule to Calendar if requested
         if (params.scheduleToCalendar && params.due) {
           const startTime = params.dueTime ? `${params.due}T${params.dueTime}:00` : `${params.due}T10:00:00`;
           const duration = params.calendarDurationMinutes || 30;
@@ -412,7 +402,6 @@ export default function App() {
           syncStatus: 'synced',
         } : t));
       } catch (err) {
-        console.warn('Error pushing task to Google Tasks, queued for sync:', err);
         storageService.enqueueSync('CREATE_TASK', newTask);
         setSyncQueue(storageService.loadSyncQueue());
       }
@@ -443,7 +432,6 @@ export default function App() {
           title: task.title,
         });
       } catch (err) {
-        console.warn('Error syncing task toggle to Google, queued:', err);
         storageService.enqueueSync('UPDATE_TASK', updatedTask);
         setSyncQueue(storageService.loadSyncQueue());
       }
@@ -480,15 +468,13 @@ export default function App() {
     setConfirmDialog({
       isOpen: true,
       title: 'Delete Task',
-      message: `Are you sure you want to permanently delete "${taskTitle}"? This will delete the item from local storage, Google Tasks, and any linked calendar blocks.`,
+      message: `Permanently delete "${taskTitle}"? This will remove the item from local storage, Google Tasks, and linked calendar events.`,
       onConfirm: async () => {
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
         const task = tasks.find(t => t.id === taskId);
 
-        // Remove locally
         setTasks(prev => prev.filter(t => t.id !== taskId));
 
-        // Delete from Google Tasks if synced
         if (task?.googleTaskId && accessToken && isOnline) {
           try {
             await googleTasksService.deleteTask(accessToken, task.listId, task.googleTaskId);
@@ -496,12 +482,8 @@ export default function App() {
             storageService.enqueueSync('DELETE_TASK', { googleTaskId: task.googleTaskId, listId: task.listId });
             setSyncQueue(storageService.loadSyncQueue());
           }
-        } else if (task?.googleTaskId) {
-          storageService.enqueueSync('DELETE_TASK', { googleTaskId: task.googleTaskId, listId: task.listId });
-          setSyncQueue(storageService.loadSyncQueue());
         }
 
-        // Delete calendar event if linked
         if (task?.calendarEventId && accessToken && isOnline) {
           try {
             await googleCalendarService.deleteCalendarEvent(accessToken, task.calendarEventId);
@@ -561,8 +543,8 @@ export default function App() {
 
     setConfirmDialog({
       isOpen: true,
-      title: 'Remove Event from Google Calendar',
-      message: `Do you want to remove the calendar event for "${task.title}" from your primary Google Calendar? The task will remain in your to-do list.`,
+      title: 'Remove Calendar Event',
+      message: `Remove the Google Calendar event for "${task.title}"? The task will remain in your to-do list.`,
       onConfirm: async () => {
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
         if (accessToken && task.calendarEventId) {
@@ -589,7 +571,7 @@ export default function App() {
     durationMinutes: number
   ) => {
     if (!accessToken) {
-      alert('Please sign in with Google to create calendar blocks.');
+      alert('Please sign in with Google to block time on your calendar.');
       return;
     }
 
@@ -618,7 +600,6 @@ export default function App() {
     const todayStr = new Date().toISOString().split('T')[0];
 
     return tasks.filter(task => {
-      // Search query filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchesTitle = task.title.toLowerCase().includes(q);
@@ -626,12 +607,10 @@ export default function App() {
         if (!matchesTitle && !matchesNotes) return false;
       }
 
-      // Priority filter
       if (filterPriority !== 'all' && task.priority !== filterPriority) {
         return false;
       }
 
-      // View Filter
       switch (currentView) {
         case 'today':
           return !task.completed && (task.due === todayStr || (!task.due && task.createdAt.startsWith(todayStr)));
@@ -654,81 +633,77 @@ export default function App() {
 
   const activeList = lists.find(l => l.id === activeListId);
 
-  // Render main content area
+  // Render main European workspace
   const renderMainTaskWorkspace = () => (
-    <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950">
-      {/* View Header & Search Controls */}
-      <div className="p-4 sm:p-6 border-b border-slate-800/80 bg-slate-900/40">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-stone-50/40 dark:bg-neutral-950 transition-colors">
+      {/* Editorial Header */}
+      <div className="px-6 py-5 border-b border-neutral-200/80 dark:border-neutral-800/80 bg-white/60 dark:bg-neutral-900/40">
+        <div className="flex flex-wrap items-baseline justify-between gap-3 mb-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-100 capitalize flex items-center gap-2.5">
+            <h1 className="text-xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
               <span>
                 {currentView === 'today' && 'Today'}
-                {currentView === 'upcoming' && 'Upcoming (Next 7 Days)'}
+                {currentView === 'upcoming' && 'Upcoming Agenda'}
                 {currentView === 'starred' && 'Starred Tasks'}
                 {currentView === 'completed' && 'Completed Archive'}
-                {currentView === 'list' && (activeListId === 'all' ? 'All Tasks' : activeList?.title || 'Task List')}
+                {currentView === 'list' && (activeListId === 'all' ? 'All Tasks' : activeList?.title || 'Collection')}
               </span>
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono font-normal">
-                {filteredTasks.length} {filteredTasks.length === 1 ? 'task' : 'tasks'}
+              <span className="font-mono text-xs text-neutral-400 font-normal tabular-nums">
+                ({filteredTasks.length})
               </span>
             </h1>
-            <p className="text-xs text-slate-400 mt-1">
-              {currentView === 'today' && "Focus on today's priorities. Scheduled with Google Calendar."}
-              {currentView === 'upcoming' && "Lookahead for scheduled deadlines and upcoming milestones."}
-              {currentView === 'starred' && "High-priority tasks flagged for immediate action."}
-              {currentView === 'completed' && "Completed tasks archive. Stored offline and synced to Google."}
-              {currentView === 'list' && "Organized tasks in this collection."}
+            <p className="text-xs text-neutral-500 mt-0.5">
+              {currentView === 'today' && "Primary focus for today. Synchronized with Google Calendar."}
+              {currentView === 'upcoming' && "Deadlines and scheduled tasks for the coming days."}
+              {currentView === 'starred' && "Flagged priorities."}
+              {currentView === 'completed' && "Completed tasks log."}
+              {currentView === 'list' && "Items in this collection."}
             </p>
           </div>
 
-          {/* Quick stats badge */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
-              Completed: <strong className="text-emerald-400 font-mono">{tasks.filter(t => t.completed).length}</strong>
-            </span>
+          <div className="text-xs font-mono text-neutral-500">
+            Completed: <span className="text-blue-600 dark:text-blue-400 font-semibold">{tasks.filter(t => t.completed).length}</span>
           </div>
         </div>
 
-        {/* Search Bar & Filter Controls */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="flex-1 min-w-[200px] flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus-within:border-indigo-500 transition">
-            <Search className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+        {/* Minimal Search & Filter Bar */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex-1 min-w-[200px] flex items-center gap-2 bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800/80 rounded-md px-3 py-1.5 text-xs text-neutral-800 dark:text-neutral-200 transition">
+            <Search className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Filter tasks by name or notes..."
-              className="w-full bg-transparent outline-none placeholder-slate-500"
+              placeholder="Search tasks..."
+              className="w-full bg-transparent outline-none placeholder-neutral-400"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="text-slate-500 hover:text-slate-300">
+              <button onClick={() => setSearchQuery('')} className="text-neutral-400 hover:text-neutral-600">
                 ✕
               </button>
             )}
           </div>
 
-          {/* Priority filter */}
-          <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300">
-            <Filter className="w-3.5 h-3.5 text-slate-500" />
-            <span className="text-slate-500">Priority:</span>
+          <div className="flex items-center gap-1.5 text-xs text-neutral-500">
+            <Filter className="w-3 h-3 text-neutral-400" />
+            <span className="font-mono text-[11px] uppercase">Priority:</span>
             <select
               value={filterPriority}
               onChange={(e) => setFilterPriority(e.target.value as Priority | 'all')}
-              className="bg-transparent outline-none text-slate-200 cursor-pointer"
+              className="bg-transparent outline-none text-neutral-800 dark:text-neutral-200 cursor-pointer font-medium"
             >
-              <option value="all" className="bg-slate-900">All</option>
-              <option value="urgent" className="bg-slate-900 text-rose-400">Urgent</option>
-              <option value="high" className="bg-slate-900 text-amber-400">High</option>
-              <option value="medium" className="bg-slate-900 text-blue-400">Medium</option>
-              <option value="low" className="bg-slate-900 text-slate-400">Low</option>
+              <option value="all">All</option>
+              <option value="urgent">Urgent</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
             </select>
           </div>
         </div>
       </div>
 
       {/* Task List Content Area */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 max-w-4xl w-full mx-auto">
+      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 max-w-3xl w-full mx-auto">
         {/* Quick Add Bar */}
         {currentView !== 'completed' && (
           <QuickAddBar
@@ -739,19 +714,17 @@ export default function App() {
           />
         )}
 
-        {/* Task Items */}
+        {/* Tasks Section */}
         {filteredTasks.length === 0 ? (
-          <div className="p-12 text-center bg-slate-900/30 border border-slate-800/80 rounded-2xl">
-            <CheckCircle2 className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-            <h3 className="text-sm font-semibold text-slate-300">No tasks in this view</h3>
-            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-              {searchQuery 
-                ? 'No tasks matched your search query. Try clearing the filter.' 
-                : 'Your agenda is clean! Add a task using the bar above or press ⌘K.'}
+          <div className="py-16 text-center border border-dashed border-neutral-200 dark:border-neutral-800 rounded-lg">
+            <CheckCircle2 className="w-8 h-8 text-neutral-300 dark:text-neutral-700 mx-auto mb-2" />
+            <h3 className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">No tasks in view</h3>
+            <p className="text-[11px] text-neutral-400 mt-0.5">
+              {searchQuery ? 'No tasks matched your search query.' : 'Ready for your next priority. Press ⌘K to add.'}
             </p>
           </div>
         ) : (
-          <div className="space-y-2.5">
+          <div className="divide-y divide-neutral-200/60 dark:divide-neutral-800/60 border-t border-b border-neutral-200/60 dark:border-neutral-800/60">
             {filteredTasks.map((task) => (
               <TaskItem
                 key={task.id}
@@ -772,228 +745,220 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500/30 selection:text-indigo-200">
-      {/* Top Navbar */}
-      <Navbar
-        user={user}
-        isOnline={isOnline}
-        isSyncing={isSyncing}
-        pendingSyncCount={syncQueue.length}
-        displayMode={displayMode}
-        onSetDisplayMode={handleSetDisplayMode}
-        onLogin={handleLogin}
-        onLogout={handleLogout}
-        onSyncNow={handleSyncNow}
-        onOpenExtensionModal={() => setIsExtensionModalOpen(true)}
-        onOpenSyncQueueModal={() => setIsSyncQueueModalOpen(true)}
-      />
+    <div className={theme === 'dark' ? 'dark' : ''}>
+      <div className="min-h-screen bg-stone-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 flex flex-col font-sans transition-colors duration-150">
+        {/* Navbar */}
+        <Navbar
+          user={user}
+          isOnline={isOnline}
+          isSyncing={isSyncing}
+          pendingSyncCount={syncQueue.length}
+          displayMode={displayMode}
+          theme={theme}
+          onToggleTheme={handleToggleTheme}
+          onSetDisplayMode={handleSetDisplayMode}
+          onLogin={handleLogin}
+          onLogout={handleLogout}
+          onSyncNow={handleSyncNow}
+          onOpenExtensionModal={() => setIsExtensionModalOpen(true)}
+          onOpenSyncQueueModal={() => setIsSyncQueueModalOpen(true)}
+        />
 
-      {/* Main Container dependent on display mode */}
-      {displayMode === 'desktop' ? (
-        <div className="flex-1 flex overflow-hidden">
-          {/* Sidebar */}
-          <Sidebar
-            currentView={currentView}
-            activeListId={activeListId}
-            lists={lists}
-            tasks={tasks}
-            lastSynced={lastSynced}
-            onSelectView={handleSelectView}
-            onCreateList={handleCreateList}
-            onDeleteList={handleDeleteList}
-            onOpenSyncQueue={() => setIsSyncQueueModalOpen(true)}
-          />
-
-          {/* Main workspace */}
-          {currentView === 'calendar' ? (
-            <CalendarScheduleView
-              events={calendarEvents}
+        {/* Display modes */}
+        {displayMode === 'desktop' ? (
+          <div className="flex-1 flex overflow-hidden">
+            <Sidebar
+              currentView={currentView}
+              activeListId={activeListId}
+              lists={lists}
               tasks={tasks}
-              hasGoogleCalendarAuth={Boolean(accessToken)}
-              isSyncing={isSyncing}
-              onRefreshEvents={() => accessToken && processSyncQueueAndFetch(accessToken)}
-              onScheduleTask={handleScheduleTaskToCalendar}
-              onQuickAddCalendarBlock={handleQuickAddCalendarBlock}
+              lastSynced={lastSynced}
+              onSelectView={handleSelectView}
+              onCreateList={handleCreateList}
+              onDeleteList={handleDeleteList}
+              onOpenSyncQueue={() => setIsSyncQueueModalOpen(true)}
             />
-          ) : (
-            renderMainTaskWorkspace()
-          )}
-        </div>
-      ) : displayMode === 'popup' ? (
-        /* Chrome Extension Popup Simulator View */
-        <div className="flex-1 bg-slate-950 flex flex-col items-center justify-center p-4">
-          <div className="mb-2 text-xs text-slate-400 flex items-center gap-2">
-            <Smartphone className="w-4 h-4 text-indigo-400" />
-            <span>Simulating Chrome Extension Popup (380 × 580 px)</span>
-            <button
-              onClick={() => handleSetDisplayMode('desktop')}
-              className="text-indigo-400 hover:underline flex items-center gap-1 ml-2"
-            >
-              <Maximize2 className="w-3 h-3" /> Return to Full App
-            </button>
-          </div>
 
-          <div className="w-[380px] h-[580px] bg-slate-900 border-2 border-slate-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden relative">
-            {/* Chrome popup header simulation */}
-            <div className="p-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
-                <span className="font-bold text-xs text-slate-100">Chronotask Quick Popup</span>
-              </div>
-              <div className="flex items-center gap-1 text-[11px] text-slate-400">
-                <span>{tasks.filter(t => !t.completed).length} pending</span>
-              </div>
-            </div>
-
-            {/* Quick add input */}
-            <div className="p-3 border-b border-slate-800 bg-slate-900">
-              <QuickAddBar
-                lists={lists}
-                activeListId={activeListId}
+            {currentView === 'calendar' ? (
+              <CalendarScheduleView
+                events={calendarEvents}
+                tasks={tasks}
                 hasGoogleCalendarAuth={Boolean(accessToken)}
-                onAddTask={handleAddTask}
+                isSyncing={isSyncing}
+                onRefreshEvents={() => accessToken && processSyncQueueAndFetch(accessToken)}
+                onScheduleTask={handleScheduleTaskToCalendar}
+                onQuickAddCalendarBlock={handleQuickAddCalendarBlock}
               />
-            </div>
-
-            {/* Scrollable tasks in popup */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-950/40">
-              {filteredTasks.slice(0, 20).map((task) => (
-                <TaskItem
-                  key={task.id}
-                  task={task}
-                  lists={lists}
-                  hasGoogleCalendarAuth={Boolean(accessToken)}
-                  onToggleComplete={handleToggleComplete}
-                  onToggleStar={handleToggleStar}
-                  onEdit={(t) => setEditingTask(t)}
-                  onDelete={handleDeleteTask}
-                  onScheduleToCalendar={(t) => setEditingTask(t)}
-                />
-              ))}
-            </div>
-
-            {/* Popup footer */}
-            <div className="p-2.5 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
-              <span>{isOnline ? '● Online & Synced' : '○ Offline Mode'}</span>
+            ) : (
+              renderMainTaskWorkspace()
+            )}
+          </div>
+        ) : displayMode === 'popup' ? (
+          /* Chrome Extension Popup Simulator View */
+          <div className="flex-1 bg-neutral-100 dark:bg-neutral-950 flex flex-col items-center justify-center p-6">
+            <div className="mb-3 text-xs text-neutral-500 flex items-center gap-2">
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>Simulating Chrome Extension Popup (380 × 580 px)</span>
               <button
-                onClick={() => setIsExtensionModalOpen(true)}
-                className="text-indigo-400 hover:text-indigo-300 font-medium"
+                onClick={() => handleSetDisplayMode('desktop')}
+                className="text-neutral-900 dark:text-neutral-100 font-medium hover:underline flex items-center gap-1 ml-2"
               >
-                Install Unpacked Extension →
+                <Maximize2 className="w-3 h-3" /> Return
               </button>
             </div>
-          </div>
-        </div>
-      ) : (
-        /* Chrome Extension Side Panel Simulator View */
-        <div className="flex-1 flex overflow-hidden bg-slate-950">
-          {/* Simulated Browser Webpage Window on Left */}
-          <div className="flex-1 bg-slate-900/60 p-6 flex flex-col justify-center items-center text-center border-r border-slate-800">
-            <div className="max-w-md space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center mx-auto border border-indigo-500/30">
-                <SidebarIcon className="w-6 h-6" />
+
+            <div className="w-[380px] h-[580px] bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded-lg shadow-xl flex flex-col overflow-hidden relative">
+              <div className="px-3.5 py-2.5 bg-stone-50 dark:bg-neutral-950 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
+                <span className="font-semibold text-xs text-neutral-900 dark:text-neutral-100 tracking-tight">Chronotask</span>
+                <span className="font-mono text-[10px] text-neutral-400">
+                  {tasks.filter(t => !t.completed).length} open
+                </span>
               </div>
-              <h2 className="text-lg font-bold text-slate-200">Chrome Side Panel Simulator</h2>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                When installed as an extension, Chronotask docks on the right of any webpage you browse so you can take notes, check off tasks, and block calendar time without switching tabs!
-              </p>
-              <div className="pt-2 flex justify-center gap-3">
+
+              <div className="p-3 border-b border-neutral-200/80 dark:border-neutral-800/80">
+                <QuickAddBar
+                  lists={lists}
+                  activeListId={activeListId}
+                  hasGoogleCalendarAuth={Boolean(accessToken)}
+                  onAddTask={handleAddTask}
+                />
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-3 divide-y divide-neutral-100 dark:divide-neutral-800/60">
+                {filteredTasks.slice(0, 20).map((task) => (
+                  <TaskItem
+                    key={task.id}
+                    task={task}
+                    lists={lists}
+                    hasGoogleCalendarAuth={Boolean(accessToken)}
+                    onToggleComplete={handleToggleComplete}
+                    onToggleStar={handleToggleStar}
+                    onEdit={(t) => setEditingTask(t)}
+                    onDelete={handleDeleteTask}
+                    onScheduleToCalendar={(t) => setEditingTask(t)}
+                  />
+                ))}
+              </div>
+
+              <div className="px-3.5 py-2 bg-stone-50 dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-[11px] text-neutral-400 font-mono">
+                <span>{isOnline ? 'Online' : 'Offline'}</span>
                 <button
                   onClick={() => setIsExtensionModalOpen(true)}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-sm transition"
+                  className="text-blue-600 dark:text-blue-400 hover:underline font-sans font-medium"
                 >
-                  Download Extension Files
-                </button>
-                <button
-                  onClick={() => handleSetDisplayMode('desktop')}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition"
-                >
-                  Exit Side Panel View
+                  Install Extension →
                 </button>
               </div>
             </div>
           </div>
-
-          {/* Side Panel Drawer (360px) */}
-          <div className="w-[360px] bg-slate-900 flex flex-col h-full border-l border-slate-800 shadow-2xl">
-            <div className="p-3 border-b border-slate-800 bg-slate-950 flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-200">Chronotask Side Panel</span>
-              <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-mono">
-                360px
-              </span>
+        ) : (
+          /* Chrome Extension Side Panel Simulator View */
+          <div className="flex-1 flex overflow-hidden bg-stone-50 dark:bg-neutral-950">
+            <div className="flex-1 bg-stone-100/70 dark:bg-neutral-900/40 p-8 flex flex-col justify-center items-center text-center border-r border-neutral-200/80 dark:border-neutral-800/80">
+              <div className="max-w-md space-y-3">
+                <div className="w-10 h-10 rounded-sm bg-blue-600 text-white flex items-center justify-center mx-auto font-mono text-xs font-bold">
+                  SP
+                </div>
+                <h2 className="text-base font-bold text-neutral-900 dark:text-neutral-100 tracking-tight">Chrome Side Panel Simulator</h2>
+                <p className="text-xs text-neutral-500 leading-relaxed">
+                  When deployed, Chronotask docks beside any web page so you can manage your schedule and capture tasks without context switching.
+                </p>
+                <div className="pt-2 flex justify-center gap-2">
+                  <button
+                    onClick={() => setIsExtensionModalOpen(true)}
+                    className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold transition cursor-pointer shadow-2xs"
+                  >
+                    Download Extension ZIP
+                  </button>
+                  <button
+                    onClick={() => handleSetDisplayMode('desktop')}
+                    className="px-3.5 py-1.5 border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:border-neutral-900 rounded-md text-xs font-medium cursor-pointer"
+                  >
+                    Exit View
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <div className="p-3 border-b border-slate-800">
-              <QuickAddBar
-                lists={lists}
-                activeListId={activeListId}
-                hasGoogleCalendarAuth={Boolean(accessToken)}
-                onAddTask={handleAddTask}
-              />
-            </div>
+            {/* Side Panel Drawer (360px) */}
+            <div className="w-[360px] bg-white dark:bg-neutral-900 flex flex-col h-full border-l border-neutral-200/80 dark:border-neutral-800/80 shadow-lg">
+              <div className="px-3.5 py-2.5 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
+                <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 tracking-tight">Chronotask Side Panel</span>
+                <span className="font-mono text-[10px] text-neutral-400">360px</span>
+              </div>
 
-            <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-950/40">
-              {filteredTasks.map((task) => (
-                <TaskItem
-                  key={task.id}
-                  task={task}
+              <div className="p-3 border-b border-neutral-200/80 dark:border-neutral-800/80">
+                <QuickAddBar
                   lists={lists}
+                  activeListId={activeListId}
                   hasGoogleCalendarAuth={Boolean(accessToken)}
-                  onToggleComplete={handleToggleComplete}
-                  onToggleStar={handleToggleStar}
-                  onEdit={(t) => setEditingTask(t)}
-                  onDelete={handleDeleteTask}
-                  onScheduleToCalendar={(t) => setEditingTask(t)}
+                  onAddTask={handleAddTask}
                 />
-              ))}
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-3 divide-y divide-neutral-100 dark:divide-neutral-800/60">
+                {filteredTasks.map((task) => (
+                  <TaskItem
+                    key={task.id}
+                    task={task}
+                    lists={lists}
+                    hasGoogleCalendarAuth={Boolean(accessToken)}
+                    onToggleComplete={handleToggleComplete}
+                    onToggleStar={handleToggleStar}
+                    onEdit={(t) => setEditingTask(t)}
+                    onDelete={handleDeleteTask}
+                    onScheduleToCalendar={(t) => setEditingTask(t)}
+                  />
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Task Detail Modal */}
-      <TaskDetailModal
-        task={editingTask}
-        lists={lists}
-        hasGoogleCalendarAuth={Boolean(accessToken)}
-        isOpen={Boolean(editingTask)}
-        onClose={() => setEditingTask(null)}
-        onSave={handleSaveTaskDetail}
-        onDelete={handleDeleteTask}
-        onScheduleToCalendar={handleScheduleTaskToCalendar}
-        onRemoveFromCalendar={handleRemoveFromCalendar}
-      />
+        {/* Task Detail Modal */}
+        <TaskDetailModal
+          task={editingTask}
+          lists={lists}
+          hasGoogleCalendarAuth={Boolean(accessToken)}
+          isOpen={Boolean(editingTask)}
+          onClose={() => setEditingTask(null)}
+          onSave={handleSaveTaskDetail}
+          onDelete={handleDeleteTask}
+          onScheduleToCalendar={handleScheduleTaskToCalendar}
+          onRemoveFromCalendar={handleRemoveFromCalendar}
+        />
 
-      {/* Extension Exporter Modal */}
-      <ExtensionExportModal
-        isOpen={isExtensionModalOpen}
-        onClose={() => setIsExtensionModalOpen(false)}
-      />
+        {/* Extension Exporter Modal */}
+        <ExtensionExportModal
+          isOpen={isExtensionModalOpen}
+          onClose={() => setIsExtensionModalOpen(false)}
+        />
 
-      {/* Sync Queue Inspector Modal */}
-      <SyncQueueModal
-        isOpen={isSyncQueueModalOpen}
-        onClose={() => setIsSyncQueueModalOpen(false)}
-        queue={syncQueue}
-        isOnline={isOnline}
-        isSyncing={isSyncing}
-        onSyncNow={handleSyncNow}
-        onClearQueue={() => {
-          storageService.clearSyncQueue();
-          setSyncQueue([]);
-        }}
-        tasksCount={tasks.length}
-        listsCount={lists.length}
-      />
+        {/* Sync Queue Inspector Modal */}
+        <SyncQueueModal
+          isOpen={isSyncQueueModalOpen}
+          onClose={() => setIsSyncQueueModalOpen(false)}
+          queue={syncQueue}
+          isOnline={isOnline}
+          isSyncing={isSyncing}
+          onSyncNow={handleSyncNow}
+          onClearQueue={() => {
+            storageService.clearSyncQueue();
+            setSyncQueue([]);
+          }}
+          tasksCount={tasks.length}
+          listsCount={lists.length}
+        />
 
-      {/* Mandatory Explicit Confirmation Dialog (Workspace Integration requirement) */}
-      <ConfirmModal
-        isOpen={confirmDialog.isOpen}
-        title={confirmDialog.title}
-        message={confirmDialog.message}
-        onConfirm={confirmDialog.onConfirm}
-        onCancel={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
-      />
+        {/* Mandatory Explicit Confirmation Dialog */}
+        <ConfirmModal
+          isOpen={confirmDialog.isOpen}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+        />
+      </div>
     </div>
   );
 }
