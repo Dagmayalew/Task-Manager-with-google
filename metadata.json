@@ -1,0 +1,6 @@
+{
+  "name": "Chronotask - Extension & Task Manager",
+  "description": "Personal task manager and Chrome extension with Google Tasks, Google Calendar sync, and offline support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
