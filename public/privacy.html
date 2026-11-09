@@ -84,22 +84,13 @@
   </p>
 
   <h2>2. Information Collected and Permissions Requested</h2>
-  <p>To provide its core functionality, Chronotask utilizes the following permissions:</p>
+  <p>To provide its core functionality, Chronotask requests only the minimum necessary permissions in compliance with Chrome Web Store Minimal Permissions policy:</p>
   <ul>
     <li>
-      <strong>Alarms API (<code>alarms</code>):</strong> Used solely to schedule periodic background updates that refresh the extension icon badge count for tasks due today. It does not monitor or report your browsing behavior.
-    </li>
-    <li>
-      <strong>Storage API (<code>storage</code>):</strong> Used to cache your task lists, tasks, and calendar events locally on your device for offline productivity.
-    </li>
-    <li>
-      <strong>Identity API (<code>identity</code>):</strong> Used to facilitate secure client-side OAuth 2.0 authentication directly with Google Accounts when you choose to connect your Google Tasks and Google Calendar.
+      <strong>Storage API (<code>storage</code>):</strong> Used exclusively to cache your tasks, task lists, and settings locally on your device for offline productivity and instant access.
     </li>
     <li>
       <strong>Side Panel API (<code>sidePanel</code>):</strong> Used to allow docking the task manager alongside web pages in Google Chrome for personal note-taking and task capture.
-    </li>
-    <li>
-      <strong>Host Permissions (<code>https://tasks.googleapis.com/*</code> & <code>https://www.googleapis.com/*</code>):</strong> Used solely to make authorized API requests to Google Tasks API and Google Calendar API to synchronize your tasks and schedule time-blocks when you sign in. No other external hosts are accessed.
     </li>
   </ul>
 

@@ -16,6 +16,7 @@ interface SidebarProps {
   onCreateList: (title: string) => void;
   onDeleteList: (listId: string, listTitle: string) => void;
   onOpenSyncQueue: () => void;
+  onOpenShortcuts?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -28,6 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCreateList,
   onDeleteList,
   onOpenSyncQueue,
+  onOpenShortcuts,
 }) => {
   const [isAddingList, setIsAddingList] = useState(false);
   const [newListTitle, setNewListTitle] = useState('');
@@ -63,6 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'list', index: '04', label: 'All Tasks', count: allCount, listId: 'all' },
     { id: 'starred', index: '05', label: 'Starred', count: starredCount },
     { id: 'completed', index: '06', label: 'Completed', count: completedCount },
+    { id: 'dashboard', index: '07', label: 'Trends', count: undefined },
   ];
 
   return (
@@ -117,19 +120,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <div className="h-px bg-neutral-200/80 dark:bg-neutral-800/80 my-2 mx-3" />
 
-      {/* Task Lists Section */}
+      {/* Folders & Type Collections Section */}
       <div className="px-4 py-1.5 flex items-center justify-between text-[10px] font-mono font-medium tracking-widest text-neutral-400 dark:text-neutral-500 uppercase">
-        <span>Lists</span>
+        <span className="flex items-center gap-1.5">
+          <span>Folders & Types</span>
+        </span>
         <button
           onClick={() => setIsAddingList(true)}
-          title="Create New Task List"
-          className="p-0.5 text-blue-600 dark:text-blue-400 hover:text-blue-700 transition"
+          title="Create New Folder"
+          className="p-0.5 text-blue-600 dark:text-blue-400 hover:text-blue-700 transition cursor-pointer flex items-center gap-1"
         >
           <FolderPlus className="w-3.5 h-3.5" />
+          <span className="text-[10px] normal-case font-sans font-semibold">+ Folder</span>
         </button>
       </div>
 
-      {/* Quick Add List Form */}
+      {/* Quick Add Folder Form */}
       {isAddingList && (
         <form onSubmit={handleCreateList} className="px-3 pb-2 pt-1">
           <div className="flex items-center gap-1.5 bg-white dark:bg-neutral-900 border border-blue-600 rounded-md p-1">
@@ -137,20 +143,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
               type="text"
               value={newListTitle}
               onChange={(e) => setNewListTitle(e.target.value)}
-              placeholder="List title..."
+              placeholder="Folder name (e.g. Work, Study)..."
               autoFocus
               className="w-full bg-transparent text-xs text-neutral-900 dark:text-neutral-100 outline-none px-1"
             />
             <button
               type="submit"
-              className="px-2 py-0.5 bg-blue-600 text-white rounded text-[10px] font-semibold"
+              disabled={!newListTitle.trim()}
+              className="px-2 py-0.5 bg-blue-600 text-white rounded text-[10px] font-semibold cursor-pointer disabled:opacity-40"
             >
               Add
             </button>
             <button
               type="button"
               onClick={() => setIsAddingList(false)}
-              className="text-neutral-400 text-xs px-1 hover:text-neutral-900 dark:hover:text-white"
+              className="text-neutral-400 text-xs px-1 hover:text-neutral-900 dark:hover:text-white cursor-pointer"
             >
               ✕
             </button>
@@ -158,10 +165,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </form>
       )}
 
-      {/* Task Lists Items */}
+      {/* Folders List Items */}
       <div className="flex-1 overflow-y-auto px-3 space-y-0.5">
         {lists.map((list) => {
-          const listTasksCount = tasks.filter(t => t.listId === list.id && !t.completed).length;
+          const listTasksCount = tasks.filter(t => (t.folderId === list.id || t.listId === list.id) && !t.completed).length;
           const isSelected = currentView === 'list' && activeListId === list.id;
 
           return (
@@ -175,10 +182,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onClick={() => onSelectView('list', list.id)}
             >
               <div className="flex items-center gap-2 truncate">
-                <span
-                  className="w-1.5 h-1.5 rounded-full shrink-0"
-                  style={{ backgroundColor: isSelected ? '#ffffff' : (list.color || '#2563eb') }}
-                />
+                <span className="text-xs">📁</span>
                 <span className="truncate">{list.title}</span>
               </div>
 
@@ -196,8 +200,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       e.stopPropagation();
                       onDeleteList(list.id, list.title);
                     }}
-                    title="Delete list"
-                    className="opacity-0 group-hover:opacity-100 text-rose-500 hover:text-rose-600 transition"
+                    title="Delete folder"
+                    className="opacity-0 group-hover:opacity-100 text-rose-500 hover:text-rose-600 transition p-0.5"
                   >
                     <Trash2 className="w-3 h-3" />
                   </button>
@@ -209,15 +213,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Bottom Sync / Status Widget */}
-      <div className="p-3 border-t border-neutral-200/80 dark:border-neutral-800/80 text-[11px] text-neutral-400 dark:text-neutral-500">
+      <div className="p-3 border-t border-neutral-200/80 dark:border-neutral-800/80 text-[11px] text-neutral-400 dark:text-neutral-500 space-y-1.5">
         <button
           onClick={onOpenSyncQueue}
-          className="w-full flex items-center justify-between hover:text-neutral-900 dark:hover:text-neutral-200 transition py-0.5"
+          className="w-full flex items-center justify-between hover:text-neutral-900 dark:hover:text-neutral-200 transition py-0.5 cursor-pointer"
         >
           <span className="font-mono uppercase tracking-wider text-[10px]">Sync Queue</span>
           <ChevronRight className="w-3.5 h-3.5" />
         </button>
-        <div className="text-[10px] font-mono text-neutral-400 dark:text-neutral-500 mt-1">
+
+        {onOpenShortcuts && (
+          <button
+            onClick={onOpenShortcuts}
+            className="w-full flex items-center justify-between hover:text-neutral-900 dark:hover:text-neutral-200 transition py-0.5 cursor-pointer"
+            title="Keyboard Shortcuts (?)"
+          >
+            <span className="font-mono uppercase tracking-wider text-[10px]">Shortcuts</span>
+            <kbd className="px-1 py-0.2 bg-stone-200/70 dark:bg-neutral-800 rounded text-[9px] font-mono font-semibold">?</kbd>
+          </button>
+        )}
+
+        <div className="text-[10px] font-mono text-neutral-400 dark:text-neutral-500 pt-0.5 border-t border-neutral-100 dark:border-neutral-850">
           {lastSynced ? `Synced ${new Date(lastSynced).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Local Ready'}
         </div>
       </div>

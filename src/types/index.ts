@@ -1,9 +1,13 @@
 export type Priority = 'low' | 'medium' | 'high' | 'urgent';
 
+export type SortOption = 'priority_desc' | 'priority_asc' | 'due_date' | 'created_desc' | 'title';
+
 export interface TaskItem {
   id: string; // local ID or Google Tasks ID
   googleTaskId?: string; // ID if synced with Google Tasks
-  listId: string; // List ID
+  listId: string; // List or Folder ID (backwards compatible with v1)
+  folderId?: string; // Folder ID (falls back to listId for v1 data)
+  folderType?: string; // Type: work, personal, study, finance, health, custom
   title: string;
   notes?: string;
   completed: boolean;
@@ -29,6 +33,7 @@ export interface TaskList {
   title: string;
   color?: string;
   icon?: string;
+  folderType?: string; // Type of folder (e.g. Work, Personal, etc.)
   isDefault?: boolean;
   updatedAt: string;
 }
@@ -68,6 +73,6 @@ export interface SyncQueueItem {
   lastError?: string;
 }
 
-export type ViewFilter = 'today' | 'upcoming' | 'starred' | 'completed' | 'calendar' | 'list';
+export type ViewFilter = 'today' | 'upcoming' | 'starred' | 'completed' | 'calendar' | 'list' | 'dashboard';
 
 export type ExtensionDisplayMode = 'desktop' | 'popup' | 'sidepanel';

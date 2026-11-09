@@ -15,6 +15,9 @@ interface TaskItemProps {
   task: TaskItemType;
   lists: TaskList[];
   hasGoogleCalendarAuth: boolean;
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (id: string) => void;
   onToggleComplete: (id: string, completed: boolean) => void;
   onToggleStar: (id: string) => void;
   onEdit: (task: TaskItemType) => void;
@@ -26,6 +29,9 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   task,
   lists,
   hasGoogleCalendarAuth,
+  isSelectionMode = false,
+  isSelected = false,
+  onToggleSelect,
   onToggleComplete,
   onToggleStar,
   onEdit,
@@ -83,9 +89,33 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
   return (
     <div className={`group border-b border-neutral-200/60 dark:border-neutral-800/60 py-3 px-2 transition-colors select-none ${
-      task.completed ? 'opacity-40' : 'hover:bg-neutral-100/50 dark:hover:bg-neutral-900/40'
+      isSelected 
+        ? 'bg-blue-50/70 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900/60' 
+        : task.completed 
+        ? 'opacity-40' 
+        : 'hover:bg-neutral-100/50 dark:hover:bg-neutral-900/40'
     }`}>
       <div className="flex items-start gap-3">
+        {/* Multi-selection Checkbox in Selection Mode */}
+        {isSelectionMode && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSelect?.(task.id);
+            }}
+            className={`w-4.5 h-4.5 mt-0.5 rounded border flex items-center justify-center transition-all shrink-0 cursor-pointer ${
+              isSelected
+                ? 'bg-blue-600 border-blue-600 text-white'
+                : 'border-neutral-300 dark:border-neutral-600 hover:border-blue-500 bg-white dark:bg-neutral-800'
+            }`}
+            aria-label={isSelected ? 'Deselect task' : 'Select task'}
+            title={isSelected ? 'Deselect' : 'Select for batch action'}
+          >
+            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+          </button>
+        )}
+
         {/* Architectural Minimal Checkbox - Cobalt Blue when checked */}
         <button
           type="button"
@@ -101,48 +131,64 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         </button>
 
         {/* Content area */}
-        <div className="flex-1 min-w-0" onClick={() => onEdit(task)}>
-          <div className="flex items-center gap-2">
-            <span className={`text-sm tracking-tight leading-snug cursor-pointer ${
+        <div 
+          className="flex-1 min-w-0 cursor-pointer" 
+          onClick={() => isSelectionMode ? onToggleSelect?.(task.id) : onEdit(task)}
+        >
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Visual Folder / List Badge */}
+            {list && (
+              <span
+                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono tracking-wide border transition-colors shrink-0 ${
+                  list.folderType === 'urgent' || list.id === 'default_urgent'
+                    ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-900/60 font-semibold'
+                    : list.folderType === 'work' || list.id === 'default_work'
+                    ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900/60 font-semibold'
+                    : 'bg-stone-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 font-medium'
+                }`}
+                title={`Category / Folder: ${list.title}`}
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                  style={{ backgroundColor: list.color || (list.folderType === 'urgent' ? '#e11d48' : '#2563eb') }}
+                />
+                <span className="truncate max-w-[150px]">{list.title}</span>
+              </span>
+            )}
+
+            <span className={`text-sm tracking-tight leading-snug font-medium ${
               task.completed 
-                ? 'line-through text-neutral-400 dark:text-neutral-500' 
+                ? 'line-through text-neutral-400 dark:text-neutral-500 font-normal' 
                 : 'text-neutral-900 dark:text-neutral-100'
             }`}>
               {task.title}
             </span>
 
             {task.starred && (
-              <Star className="w-3 h-3 text-rose-600 fill-rose-600 shrink-0" />
+              <Star className="w-3.5 h-3.5 text-rose-600 fill-rose-600 shrink-0" />
             )}
           </div>
 
           {/* Zero-Pill Unboxed Metadata Line with typographic separators */}
           <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
-            {list && (
-              <span>{list.title}</span>
-            )}
-
             {task.due && (
               <>
-                <span aria-hidden="true">·</span>
                 {getDueLabel()}
+                <span aria-hidden="true">·</span>
               </>
             )}
 
-            {task.priority !== 'medium' && (
-              <>
-                <span aria-hidden="true">·</span>
-                <span className={`font-mono uppercase text-[10px] ${
-                  task.priority === 'urgent' 
-                    ? 'text-rose-600 dark:text-rose-400 font-semibold' 
-                    : task.priority === 'high' 
-                    ? 'text-rose-600/80 dark:text-rose-400/80 font-medium' 
-                    : 'text-neutral-400'
-                }`}>
-                  {task.priority}
-                </span>
-              </>
-            )}
+            <span className={`font-mono uppercase text-[10px] font-semibold ${
+              task.priority === 'urgent' 
+                ? 'text-rose-600 dark:text-rose-400 font-bold' 
+                : task.priority === 'high' 
+                ? 'text-rose-600/90 dark:text-rose-400/90' 
+                : task.priority === 'medium'
+                ? 'text-blue-600 dark:text-blue-400'
+                : 'text-neutral-400'
+            }`}>
+              {task.priority}
+            </span>
 
             {task.googleTaskId && (
               <>

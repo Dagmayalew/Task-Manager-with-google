@@ -103,9 +103,9 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
         {/* Minimalist Options Drawer */}
         {isExpanded && (
           <div className="mt-3 pt-2.5 border-t border-neutral-100 dark:border-neutral-800/80 flex flex-wrap items-center gap-3 text-xs text-neutral-600 dark:text-neutral-400">
-            {/* List selector */}
+            {/* Folder selector */}
             <div className="flex items-center gap-1.5">
-              <span className="text-neutral-400 font-mono text-[10px] uppercase">List:</span>
+              <span className="text-neutral-400 font-mono text-[10px] uppercase">Folder:</span>
               <select
                 value={selectedListId}
                 onChange={(e) => setSelectedListId(e.target.value)}
@@ -113,7 +113,7 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
               >
                 {lists.map((list) => (
                   <option key={list.id} value={list.id} className="bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200">
-                    {list.title}
+                    📁 {list.title}
                   </option>
                 ))}
               </select>

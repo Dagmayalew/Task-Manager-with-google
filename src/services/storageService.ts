@@ -9,12 +9,14 @@ const STORAGE_KEYS = {
   THEME_MODE: 'chronotask_theme_mode',
   DISPLAY_MODE: 'chronotask_display_mode',
   LAST_SYNCED: 'chronotask_last_synced',
+  SORT_OPTION: 'chronotask_sort_option',
 };
 
 const DEFAULT_LISTS: TaskList[] = [
   {
     id: 'default_my_tasks',
-    title: 'My Tasks',
+    title: 'General',
+    folderType: 'general',
     color: '#2563eb', // Color 1: Cobalt Blue
     isDefault: true,
     updatedAt: new Date().toISOString(),
@@ -22,13 +24,22 @@ const DEFAULT_LISTS: TaskList[] = [
   {
     id: 'default_work',
     title: 'Work & Projects',
+    folderType: 'work',
     color: '#e11d48', // Color 2: Swiss Vermilion
     updatedAt: new Date().toISOString(),
   },
   {
     id: 'default_personal',
     title: 'Personal',
+    folderType: 'personal',
     color: '#2563eb', // Color 1: Cobalt Blue
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'default_urgent',
+    title: 'Urgent & Critical',
+    folderType: 'urgent',
+    color: '#e11d48', // Color 2: Swiss Vermilion
     updatedAt: new Date().toISOString(),
   },
 ];
@@ -37,10 +48,12 @@ const INITIAL_SAMPLE_TASKS: TaskItem[] = [
   {
     id: 'sample_1',
     listId: 'default_my_tasks',
+    folderId: 'default_my_tasks',
+    folderType: 'general',
     title: 'Connect Google Tasks & Calendar account',
     notes: 'Click the "Sign in with Google" button to sync your lists, tasks, and calendar events.',
     completed: false,
-    priority: 'high',
+    priority: 'urgent',
     starred: true,
     due: new Date().toISOString().split('T')[0],
     dueTime: '10:00',
@@ -51,10 +64,12 @@ const INITIAL_SAMPLE_TASKS: TaskItem[] = [
   {
     id: 'sample_2',
     listId: 'default_work',
+    folderId: 'default_work',
+    folderType: 'work',
     title: 'Review Chrome Extension build & package manifest',
     notes: 'Inspect the Chrome Extension panel to preview popup/sidepanel views or download the unpacked extension zip.',
     completed: false,
-    priority: 'medium',
+    priority: 'high',
     starred: true,
     due: new Date().toISOString().split('T')[0],
     dueTime: '14:30',
@@ -65,10 +80,12 @@ const INITIAL_SAMPLE_TASKS: TaskItem[] = [
   {
     id: 'sample_3',
     listId: 'default_personal',
+    folderId: 'default_personal',
+    folderType: 'personal',
     title: 'Schedule weekly planning session to Google Calendar',
     notes: 'Click the calendar icon on any task to schedule a dedicated time-block on your Google Calendar.',
     completed: false,
-    priority: 'high',
+    priority: 'medium',
     starred: false,
     due: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     createdAt: new Date().toISOString(),
@@ -78,6 +95,8 @@ const INITIAL_SAMPLE_TASKS: TaskItem[] = [
   {
     id: 'sample_4',
     listId: 'default_my_tasks',
+    folderId: 'default_my_tasks',
+    folderType: 'general',
     title: 'Test offline mode by disconnecting Wi-Fi',
     notes: 'Create and check off tasks offline. Chronotask automatically queues changes and syncs upon reconnection.',
     completed: true,
@@ -91,7 +110,7 @@ const INITIAL_SAMPLE_TASKS: TaskItem[] = [
 ];
 
 export const storageService = {
-  // Load tasks from local storage
+  // Load tasks from local storage with full v1 backwards-compatibility
   loadTasks(): TaskItem[] {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.TASKS);
@@ -99,7 +118,13 @@ export const storageService = {
         this.saveTasks(INITIAL_SAMPLE_TASKS);
         return INITIAL_SAMPLE_TASKS;
       }
-      return JSON.parse(data);
+      const rawTasks = JSON.parse(data);
+      // Ensure v1 tasks without folderId or folderType are gracefully normalized
+      return rawTasks.map((t: any) => ({
+        ...t,
+        folderId: t.folderId || t.listId || 'default_my_tasks',
+        priority: t.priority || 'medium',
+      }));
     } catch (e) {
       console.warn('Error reading tasks from storage:', e);
       return INITIAL_SAMPLE_TASKS;
@@ -234,4 +259,15 @@ export const storageService = {
   setTheme(theme: 'light' | 'dark') {
     localStorage.setItem(STORAGE_KEYS.THEME_MODE, theme);
   },
+
+  // Priority and general sorting
+  getSortOption(): 'priority_desc' | 'priority_asc' | 'due_date' | 'created_desc' | 'title' {
+    const saved = localStorage.getItem(STORAGE_KEYS.SORT_OPTION);
+    return (saved as any) || 'priority_desc'; // Default priority High to Low per user request
+  },
+
+  setSortOption(sort: string) {
+    localStorage.setItem(STORAGE_KEYS.SORT_OPTION, sort);
+  },
 };
+

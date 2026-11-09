@@ -15,7 +15,8 @@ import {
   SyncQueueItem, 
   ViewFilter, 
   ExtensionDisplayMode,
-  Priority 
+  Priority,
+  SortOption 
 } from './types';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
@@ -26,13 +27,21 @@ import { CalendarScheduleView } from './components/CalendarScheduleView';
 import { ConfirmModal } from './components/ConfirmModal';
 import { ExtensionExportModal } from './components/ExtensionExportModal';
 import { SyncQueueModal } from './components/SyncQueueModal';
+import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
+import { BatchActionBar } from './components/BatchActionBar';
+import { TrendsDashboard } from './components/TrendsDashboard';
 import { 
   Search, 
   Filter, 
   CheckCircle2, 
   Smartphone, 
   Sidebar as SidebarIcon,
-  Maximize2 
+  Maximize2,
+  ArrowUpDown,
+  ArrowDownWideNarrow,
+  Folder,
+  Keyboard,
+  CheckSquare
 } from 'lucide-react';
 
 export default function App() {
@@ -67,14 +76,25 @@ export default function App() {
     (storageService.getDisplayMode() as ExtensionDisplayMode) || 'desktop'
   );
 
-  // Search & Filter
+  // Search, Filter & Sort
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState<Priority | 'all'>('all');
+  const [sortOption, setSortOption] = useState<SortOption>(() => storageService.getSortOption());
+
+  const handleSetSortOption = (opt: SortOption) => {
+    setSortOption(opt);
+    storageService.setSortOption(opt);
+  };
 
   // Modals & Dialogs
   const [editingTask, setEditingTask] = useState<TaskItemType | null>(null);
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
   const [isSyncQueueModalOpen, setIsSyncQueueModalOpen] = useState(false);
+  const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
+
+  // Multi-Task Selection & Batch Action Mode
+  const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
 
   // Mandatory Explicit Confirmation Modal state (for destructive operations per workspace skill)
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -281,13 +301,13 @@ export default function App() {
   };
 
   // Select View or List
-  const handleSelectView = (view: ViewFilter, listId?: string) => {
+  const handleSelectView = useCallback((view: ViewFilter, listId?: string) => {
     setCurrentView(view);
     if (listId) {
       setActiveListId(listId);
       storageService.setActiveListId(listId);
     }
-  };
+  }, []);
 
   // Create List
   const handleCreateList = async (title: string) => {
@@ -448,6 +468,19 @@ export default function App() {
 
   // Save Task Detail
   const handleSaveTaskDetail = async (updatedTask: TaskItemType) => {
+    if (updatedTask.id.startsWith('new_')) {
+      if (!updatedTask.title.trim()) return;
+      await handleAddTask({
+        title: updatedTask.title.trim(),
+        notes: updatedTask.notes,
+        listId: updatedTask.folderId || updatedTask.listId,
+        priority: updatedTask.priority,
+        due: updatedTask.due,
+        dueTime: updatedTask.dueTime,
+      });
+      return;
+    }
+
     setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
 
     if (accessToken && isOnline && updatedTask.googleTaskId) {
@@ -462,6 +495,234 @@ export default function App() {
       setSyncQueue(storageService.loadSyncQueue());
     }
   };
+
+  // Open blank new task modal (triggered by Hotkey 'N' or UI action)
+  const handleOpenNewTask = useCallback(() => {
+    const defaultList = activeListId !== 'all' 
+      ? activeListId 
+      : (lists[0]?.id || 'default_my_tasks');
+
+    const blankTask: TaskItemType = {
+      id: 'new_' + Math.random().toString(36).substring(2, 9),
+      listId: defaultList,
+      folderId: defaultList,
+      title: '',
+      notes: '',
+      completed: false,
+      priority: 'high',
+      starred: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      syncStatus: accessToken && isOnline ? 'pending' : 'local_only',
+    };
+    setEditingTask(blankTask);
+  }, [activeListId, lists, accessToken, isOnline]);
+
+  // Batch selection handlers
+  const handleToggleSelectMode = () => {
+    setIsSelectionMode(prev => {
+      if (prev) {
+        setSelectedTaskIds(new Set());
+      }
+      return !prev;
+    });
+  };
+
+  const handleToggleSelectTask = (taskId: string) => {
+    setIsSelectionMode(true);
+    setSelectedTaskIds(prev => {
+      const next = new Set(prev);
+      if (next.has(taskId)) {
+        next.delete(taskId);
+      } else {
+        next.add(taskId);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAllTasks = () => {
+    setSelectedTaskIds(new Set(filteredTasks.map(t => t.id)));
+  };
+
+  const handleDeselectAllTasks = () => {
+    setSelectedTaskIds(new Set());
+    setIsSelectionMode(false);
+  };
+
+  const handleBatchComplete = async (completed: boolean) => {
+    if (selectedTaskIds.size === 0) return;
+    const nowIso = new Date().toISOString();
+    const updatedTasks = tasks.map(t => {
+      if (selectedTaskIds.has(t.id)) {
+        return {
+          ...t,
+          completed,
+          completedAt: completed ? nowIso : undefined,
+          updatedAt: nowIso,
+        };
+      }
+      return t;
+    });
+
+    setTasks(updatedTasks);
+
+    // Queue / execute Google Tasks API sync for synced tasks
+    for (const taskId of selectedTaskIds) {
+      const t = tasks.find(item => item.id === taskId);
+      if (t) {
+        const payload = {
+          ...t,
+          completed,
+          completedAt: completed ? nowIso : undefined,
+          updatedAt: nowIso,
+        };
+        if (accessToken && isOnline && t.googleTaskId) {
+          try {
+            await googleTasksService.updateTask(accessToken, t.listId, t.googleTaskId, {
+              completed,
+              title: t.title,
+            });
+          } catch (e) {
+            storageService.enqueueSync('UPDATE_TASK', payload);
+          }
+        } else {
+          storageService.enqueueSync('UPDATE_TASK', payload);
+        }
+      }
+    }
+    setSyncQueue(storageService.loadSyncQueue());
+    setSelectedTaskIds(new Set());
+  };
+
+  const handleBatchMove = async (targetFolderId: string) => {
+    if (selectedTaskIds.size === 0) return;
+    const nowIso = new Date().toISOString();
+    const updatedTasks = tasks.map(t => {
+      if (selectedTaskIds.has(t.id)) {
+        return {
+          ...t,
+          folderId: targetFolderId,
+          listId: targetFolderId,
+          updatedAt: nowIso,
+        };
+      }
+      return t;
+    });
+
+    setTasks(updatedTasks);
+
+    for (const taskId of selectedTaskIds) {
+      const t = tasks.find(item => item.id === taskId);
+      if (t) {
+        const payload = { ...t, folderId: targetFolderId, listId: targetFolderId, updatedAt: nowIso };
+        storageService.enqueueSync('UPDATE_TASK', payload);
+      }
+    }
+    setSyncQueue(storageService.loadSyncQueue());
+    setSelectedTaskIds(new Set());
+  };
+
+  const handleBatchDelete = () => {
+    if (selectedTaskIds.size === 0) return;
+    const count = selectedTaskIds.size;
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Batch Delete Tasks',
+      message: `Permanently delete ${count} selected task${count > 1 ? 's' : ''}? This action removes them locally, from Google Tasks, and un-schedules linked calendar events.`,
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        const idsToDelete = new Set(selectedTaskIds);
+
+        for (const taskId of idsToDelete) {
+          const t = tasks.find(item => item.id === taskId);
+          if (t?.googleTaskId && accessToken && isOnline) {
+            try {
+              await googleTasksService.deleteTask(accessToken, t.listId, t.googleTaskId);
+            } catch (e) {
+              storageService.enqueueSync('DELETE_TASK', { googleTaskId: t.googleTaskId, listId: t.listId });
+            }
+          }
+          if (t?.calendarEventId && accessToken && isOnline) {
+            try {
+              await googleCalendarService.deleteCalendarEvent(accessToken, t.calendarEventId);
+              setCalendarEvents(prev => prev.filter(e => e.id !== t.calendarEventId));
+            } catch (e) {
+              console.warn('Calendar delete error:', e);
+            }
+          }
+        }
+
+        setTasks(prev => prev.filter(t => !idsToDelete.has(t.id)));
+        setSyncQueue(storageService.loadSyncQueue());
+        setSelectedTaskIds(new Set());
+        setIsSelectionMode(false);
+      },
+    });
+  };
+
+  // Global Keyboard Shortcut Listener for quick actions and cycling views
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      // Do not trigger hotkeys if user is typing in an input, textarea, select, or editable element
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      // Single-key hotkeys (without Meta, Ctrl, Alt)
+      if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (e.key === 'n' || e.key === 'N') {
+          e.preventDefault();
+          handleOpenNewTask();
+        } else if (e.key === 't' || e.key === 'T' || e.key === '1') {
+          e.preventDefault();
+          handleSelectView('today');
+        } else if (e.key === 'u' || e.key === 'U' || e.key === '2') {
+          e.preventDefault();
+          handleSelectView('upcoming');
+        } else if (e.key === 'c' || e.key === 'C' || e.key === '3') {
+          e.preventDefault();
+          handleSelectView('calendar');
+        } else if (e.key === 's' || e.key === 'S' || e.key === '4') {
+          e.preventDefault();
+          handleSelectView('starred');
+        } else if (e.key === '5') {
+          e.preventDefault();
+          handleSelectView('completed');
+        } else if (e.key === 'a' || e.key === 'A' || e.key === '6') {
+          e.preventDefault();
+          handleSelectView('list', 'all');
+        } else if (e.key === '7' || e.key === 'd' || e.key === 'D') {
+          e.preventDefault();
+          handleSelectView('dashboard');
+        } else if (e.key === 'x' || e.key === 'X') {
+          e.preventDefault();
+          handleToggleSelectMode();
+        } else if (e.key === '?') {
+          e.preventDefault();
+          setIsShortcutsHelpOpen(prev => !prev);
+        } else if (e.key === 'Escape') {
+          if (isShortcutsHelpOpen) {
+            e.preventDefault();
+            setIsShortcutsHelpOpen(false);
+          } else if (selectedTaskIds.size > 0 || isSelectionMode) {
+            e.preventDefault();
+            handleDeselectAllTasks();
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleOpenNewTask, handleSelectView, isShortcutsHelpOpen, isSelectionMode, selectedTaskIds]);
 
   // Delete Task with MANDATORY Confirmation Modal
   const handleDeleteTask = (taskId: string, taskTitle: string) => {
@@ -595,11 +856,17 @@ export default function App() {
     }
   };
 
-  // Filter tasks based on view & search
+  // Filter & Sort tasks based on view, search, priority, and sort options
   const filteredTasks = useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0];
+    const priorityWeight: Record<Priority, number> = {
+      urgent: 4,
+      high: 3,
+      medium: 2,
+      low: 1,
+    };
 
-    return tasks.filter(task => {
+    const result = tasks.filter(task => {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchesTitle = task.title.toLowerCase().includes(q);
@@ -622,14 +889,42 @@ export default function App() {
           return task.completed;
         case 'list':
           if (activeListId === 'all') return !task.completed;
-          return !task.completed && task.listId === activeListId;
+          return !task.completed && (task.folderId === activeListId || task.listId === activeListId);
         case 'calendar':
           return true;
         default:
           return true;
       }
     });
-  }, [tasks, currentView, activeListId, searchQuery, filterPriority]);
+
+    // High to Low priority sorting
+    result.sort((a, b) => {
+      if (sortOption === 'priority_desc') {
+        const pDiff = (priorityWeight[b.priority] || 2) - (priorityWeight[a.priority] || 2);
+        if (pDiff !== 0) return pDiff;
+        if (a.due && b.due) return a.due.localeCompare(b.due);
+        if (a.due) return -1;
+        if (b.due) return 1;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      } else if (sortOption === 'priority_asc') {
+        const pDiff = (priorityWeight[a.priority] || 2) - (priorityWeight[b.priority] || 2);
+        if (pDiff !== 0) return pDiff;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      } else if (sortOption === 'due_date') {
+        if (a.due && b.due) return a.due.localeCompare(b.due);
+        if (a.due) return -1;
+        if (b.due) return 1;
+        return 0;
+      } else if (sortOption === 'created_desc') {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      } else if (sortOption === 'title') {
+        return a.title.localeCompare(b.title);
+      }
+      return 0;
+    });
+
+    return result;
+  }, [tasks, currentView, activeListId, searchQuery, filterPriority, sortOption]);
 
   const activeList = lists.find(l => l.id === activeListId);
 
@@ -646,35 +941,54 @@ export default function App() {
                 {currentView === 'upcoming' && 'Upcoming Agenda'}
                 {currentView === 'starred' && 'Starred Tasks'}
                 {currentView === 'completed' && 'Completed Archive'}
-                {currentView === 'list' && (activeListId === 'all' ? 'All Tasks' : activeList?.title || 'Collection')}
+                {currentView === 'list' && (activeListId === 'all' ? 'All Tasks' : `📁 ${activeList?.title || 'Folder'}`)}
               </span>
               <span className="font-mono text-xs text-neutral-400 font-normal tabular-nums">
                 ({filteredTasks.length})
               </span>
             </h1>
             <p className="text-xs text-neutral-500 mt-0.5">
-              {currentView === 'today' && "Primary focus for today. Synchronized with Google Calendar."}
+              {currentView === 'today' && "Primary focus for today. Sorted by priority."}
               {currentView === 'upcoming' && "Deadlines and scheduled tasks for the coming days."}
               {currentView === 'starred' && "Flagged priorities."}
-              {currentView === 'completed' && "Completed tasks log."}
-              {currentView === 'list' && "Items in this collection."}
+              {currentView === 'completed' && "Completed tasks archive."}
+              {currentView === 'list' && `Items in folder "${activeList?.title || 'Collection'}".`}
             </p>
           </div>
 
-          <div className="text-xs font-mono text-neutral-500">
-            Completed: <span className="text-blue-600 dark:text-blue-400 font-semibold">{tasks.filter(t => t.completed).length}</span>
+          <div className="flex items-center gap-3 text-xs font-mono text-neutral-500">
+            <button
+              onClick={() => setIsShortcutsHelpOpen(true)}
+              className="hidden sm:inline-flex items-center gap-1.5 px-2 py-1 rounded bg-stone-100 dark:bg-neutral-800 hover:bg-stone-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 border border-neutral-200/80 dark:border-neutral-700/80 transition cursor-pointer text-[11px]"
+              title="Keyboard Shortcuts (?)"
+            >
+              <Keyboard className="w-3 h-3 text-neutral-500" />
+              <span>Hotkeys:</span>
+              <kbd className="px-1 py-0.2 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">N</kbd>
+              <span>New</span>
+              <kbd className="px-1 py-0.2 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">T</kbd>
+              <span>Today</span>
+              <kbd className="px-1 py-0.2 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-600 rounded text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">?</kbd>
+            </button>
+            <span>
+              Total: <strong className="text-neutral-800 dark:text-neutral-200 font-semibold">{tasks.length}</strong>
+            </span>
+            <span>·</span>
+            <span>
+              Done: <span className="text-blue-600 dark:text-blue-400 font-semibold">{tasks.filter(t => t.completed).length}</span>
+            </span>
           </div>
         </div>
 
-        {/* Minimal Search & Filter Bar */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex-1 min-w-[200px] flex items-center gap-2 bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800/80 rounded-md px-3 py-1.5 text-xs text-neutral-800 dark:text-neutral-200 transition">
+        {/* Minimal Search, Filter & Priority Sorting Bar */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex-1 min-w-[180px] flex items-center gap-2 bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800/80 rounded-md px-3 py-1.5 text-xs text-neutral-800 dark:text-neutral-200 transition">
             <Search className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search tasks..."
+              placeholder="Search tasks, notes..."
               className="w-full bg-transparent outline-none placeholder-neutral-400"
             />
             {searchQuery && (
@@ -684,28 +998,72 @@ export default function App() {
             )}
           </div>
 
-          <div className="flex items-center gap-1.5 text-xs text-neutral-500">
+          {/* Quick Priority High to Low Toggle Button */}
+          <button
+            onClick={() => handleSetSortOption(sortOption === 'priority_desc' ? 'priority_asc' : 'priority_desc')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono transition cursor-pointer border ${
+              sortOption === 'priority_desc'
+                ? 'bg-blue-600 text-white border-blue-600 shadow-2xs font-semibold'
+                : 'bg-white dark:bg-neutral-900 border-neutral-200/80 dark:border-neutral-800/80 text-neutral-700 dark:text-neutral-300 hover:border-blue-600'
+            }`}
+            title="Sort tasks by Priority High to Low"
+          >
+            <ArrowDownWideNarrow className="w-3.5 h-3.5" />
+            <span>Priority: {sortOption === 'priority_desc' ? 'High → Low' : sortOption === 'priority_asc' ? 'Low → High' : 'Custom'}</span>
+          </button>
+
+          {/* Detailed Sort Selector */}
+          <div className="flex items-center gap-1 bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800/80 rounded-md px-2 py-1 text-xs text-neutral-700 dark:text-neutral-300">
+            <span className="font-mono text-[10px] text-neutral-400 uppercase">Sort:</span>
+            <select
+              value={sortOption}
+              onChange={(e) => handleSetSortOption(e.target.value as SortOption)}
+              className="bg-transparent outline-none cursor-pointer text-xs"
+            >
+              <option value="priority_desc">Priority: High to Low</option>
+              <option value="priority_asc">Priority: Low to High</option>
+              <option value="due_date">Due Date</option>
+              <option value="created_desc">Recently Created</option>
+              <option value="title">Alphabetical (A-Z)</option>
+            </select>
+          </div>
+
+          {/* Priority Filter */}
+          <div className="flex items-center gap-1.5 text-xs text-neutral-500 bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800/80 rounded-md px-2.5 py-1">
             <Filter className="w-3 h-3 text-neutral-400" />
-            <span className="font-mono text-[11px] uppercase">Priority:</span>
             <select
               value={filterPriority}
               onChange={(e) => setFilterPriority(e.target.value as Priority | 'all')}
-              className="bg-transparent outline-none text-neutral-800 dark:text-neutral-200 cursor-pointer font-medium"
+              className="bg-transparent outline-none text-neutral-800 dark:text-neutral-200 cursor-pointer font-medium text-xs"
             >
-              <option value="all">All</option>
-              <option value="urgent">Urgent</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
+              <option value="all">Filter: All Priorities</option>
+              <option value="urgent">Urgent Only</option>
+              <option value="high">High Only</option>
+              <option value="medium">Medium Only</option>
+              <option value="low">Low Only</option>
             </select>
           </div>
+
+          {/* Multi-Select Batch Mode Button */}
+          <button
+            onClick={handleToggleSelectMode}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono transition cursor-pointer border ${
+              isSelectionMode
+                ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 border-neutral-900 dark:border-white font-semibold'
+                : 'bg-white dark:bg-neutral-900 border-neutral-200/80 dark:border-neutral-800/80 text-neutral-700 dark:text-neutral-300 hover:border-neutral-400'
+            }`}
+            title="Toggle Selection Mode (Hotkey: X)"
+          >
+            <CheckSquare className="w-3.5 h-3.5" />
+            <span>{isSelectionMode ? `Select Mode (${selectedTaskIds.size})` : 'Select'}</span>
+          </button>
         </div>
       </div>
 
       {/* Task List Content Area */}
-      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 max-w-3xl w-full mx-auto">
+      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 max-w-3xl w-full mx-auto pb-24">
         {/* Quick Add Bar */}
-        {currentView !== 'completed' && (
+        {currentView !== 'completed' && !isSelectionMode && (
           <QuickAddBar
             lists={lists}
             activeListId={activeListId}
@@ -731,6 +1089,9 @@ export default function App() {
                 task={task}
                 lists={lists}
                 hasGoogleCalendarAuth={Boolean(accessToken)}
+                isSelectionMode={isSelectionMode}
+                isSelected={selectedTaskIds.has(task.id)}
+                onToggleSelect={handleToggleSelectTask}
                 onToggleComplete={handleToggleComplete}
                 onToggleStar={handleToggleStar}
                 onEdit={(t) => setEditingTask(t)}
@@ -741,6 +1102,18 @@ export default function App() {
           </div>
         )}
       </div>
+
+      {/* Floating Batch Action Bar */}
+      <BatchActionBar
+        selectedCount={selectedTaskIds.size}
+        totalCount={filteredTasks.length}
+        lists={lists}
+        onSelectAll={handleSelectAllTasks}
+        onDeselectAll={handleDeselectAllTasks}
+        onBatchComplete={handleBatchComplete}
+        onBatchMove={handleBatchMove}
+        onBatchDelete={handleBatchDelete}
+      />
     </div>
   );
 
@@ -777,6 +1150,7 @@ export default function App() {
               onCreateList={handleCreateList}
               onDeleteList={handleDeleteList}
               onOpenSyncQueue={() => setIsSyncQueueModalOpen(true)}
+              onOpenShortcuts={() => setIsShortcutsHelpOpen(true)}
             />
 
             {currentView === 'calendar' ? (
@@ -788,6 +1162,11 @@ export default function App() {
                 onRefreshEvents={() => accessToken && processSyncQueueAndFetch(accessToken)}
                 onScheduleTask={handleScheduleTaskToCalendar}
                 onQuickAddCalendarBlock={handleQuickAddCalendarBlock}
+              />
+            ) : currentView === 'dashboard' ? (
+              <TrendsDashboard
+                tasks={tasks}
+                lists={lists}
               />
             ) : (
               renderMainTaskWorkspace()
@@ -924,6 +1303,7 @@ export default function App() {
           onClose={() => setEditingTask(null)}
           onSave={handleSaveTaskDetail}
           onDelete={handleDeleteTask}
+          onCreateFolder={handleCreateList}
           onScheduleToCalendar={handleScheduleTaskToCalendar}
           onRemoveFromCalendar={handleRemoveFromCalendar}
         />
@@ -957,6 +1337,12 @@ export default function App() {
           message={confirmDialog.message}
           onConfirm={confirmDialog.onConfirm}
           onCancel={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+        />
+
+        {/* Keyboard Shortcuts Cheatsheet Modal */}
+        <KeyboardShortcutsModal
+          isOpen={isShortcutsHelpOpen}
+          onClose={() => setIsShortcutsHelpOpen(false)}
         />
       </div>
     </div>

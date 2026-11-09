@@ -26,7 +26,7 @@ export const ExtensionExportModal: React.FC<ExtensionExportModalProps> = ({
   const clientId = firebaseConfig.oAuthClientId || '';
   const files: ExtensionFile[] = generateExtensionFiles(clientId);
 
-  const [activeTab, setActiveTab] = useState<'store_answers' | 'files' | 'local_install'>('store_answers');
+  const [activeTab, setActiveTab] = useState<'store_answers' | 'files' | 'local_install' | 'extension_auth'>('store_answers');
   const [activeFileIndex, setActiveFileIndex] = useState(0);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isZipping, setIsZipping] = useState(false);
@@ -39,12 +39,12 @@ export const ExtensionExportModal: React.FC<ExtensionExportModalProps> = ({
 
   const storeFields = [
     {
-      id: 'privacy_policy',
-      title: 'Privacy Policy URL',
-      location: 'Store Listing tab & Privacy practices tab',
-      requiredFor: 'Privacy policy link is not valid',
-      value: hostedPrivacyUrl,
-      instruction: 'Paste this public HTTPS link into the "Privacy policy" input field. It is publicly served and compliant.'
+      id: 'version_info',
+      title: 'Package Version 1.1.0 (Live Compatible Update)',
+      location: 'Package tab → Upload New Package',
+      requiredFor: 'Version 1.1.0 Release Update',
+      value: 'chronotask-extension-v1.1.0.zip',
+      instruction: 'Upload the v1.1.0 ZIP file. 100% backwards-compatible with version 1 data. Adds folders by type, priority high-to-low sorting, and click-to-edit task detail page.'
     },
     {
       id: 'single_purpose',
@@ -53,22 +53,6 @@ export const ExtensionExportModal: React.FC<ExtensionExportModalProps> = ({
       requiredFor: 'The single purpose description is required',
       value: 'A personal productivity task manager that organizes to-dos and synchronizes them directly with Google Tasks and Google Calendar.',
       instruction: 'Paste into the Single Purpose description box.'
-    },
-    {
-      id: 'alarms_justification',
-      title: 'Alarms Permission Justification',
-      location: 'Privacy practices tab → Permission justifications → alarms',
-      requiredFor: 'A justification for alarms is required',
-      value: 'Used solely to periodically update the extension action badge icon with the count of pending tasks scheduled for today.',
-      instruction: 'Paste in the justification text area for the "alarms" permission.'
-    },
-    {
-      id: 'host_justification',
-      title: 'Host Permission Justification',
-      location: 'Privacy practices tab → Permission justifications → host permissions',
-      requiredFor: 'A justification for host permission use is required',
-      value: 'Used exclusively to connect to tasks.googleapis.com and www.googleapis.com to synchronize task lists and schedule calendar focus time directly with the user\'s authorized Google account.',
-      instruction: 'Paste in the justification text area for host permissions (*://tasks.googleapis.com/* & *://www.googleapis.com/*).'
     },
     {
       id: 'detailed_description',
@@ -173,6 +157,18 @@ export const ExtensionExportModal: React.FC<ExtensionExportModalProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTab('extension_auth')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition ${
+              activeTab === 'extension_auth'
+                ? 'bg-blue-600 text-white'
+                : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+            }`}
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span>Extension Sign-In FAQ</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('files')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition ${
               activeTab === 'files'
@@ -188,12 +184,69 @@ export const ExtensionExportModal: React.FC<ExtensionExportModalProps> = ({
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto py-3 space-y-4">
           {activeTab === 'store_answers' && (
-            <div className="space-y-3">
-              <div className="p-3 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/70 dark:border-blue-900/40 rounded-md text-xs text-neutral-700 dark:text-neutral-300">
-                <span className="font-semibold text-blue-600 dark:text-blue-400 block mb-0.5">
-                  Direct Copy & Paste for Chrome Web Store Developer Console
-                </span>
-                Click the <strong>Copy</strong> button on each item below to paste into the Chrome Web Store Developer Console to clear each rejection notice.
+            <div className="space-y-4">
+              {/* Alert explaining why preview URL is unreachable */}
+              <div className="p-3.5 bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-900/50 rounded-md text-xs space-y-2">
+                <div className="flex items-center gap-2 text-rose-700 dark:text-rose-400 font-semibold">
+                  <span>Why Chrome says: "Privacy policy link is not reachable"</span>
+                </div>
+                <p className="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+                  The AI Studio preview domain requires your personal Google login. Because Chrome Web Store’s automated crawler does not have your login cookie, it receives a redirect when testing the link.
+                </p>
+                <div className="p-2.5 bg-white dark:bg-neutral-900 border border-rose-200/60 dark:border-rose-900/40 rounded text-xs space-y-1.5">
+                  <span className="font-semibold text-neutral-900 dark:text-neutral-100 block">
+                    Fastest 1-Minute Fix (Accepted by Google):
+                  </span>
+                  <ol className="list-decimal pl-4 space-y-1 text-neutral-600 dark:text-neutral-400">
+                    <li>Create a new doc at <a href="https://docs.google.com/document/create" target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 underline">docs.google.com</a>.</li>
+                    <li>Click the button below to copy the complete policy text and paste it into the doc.</li>
+                    <li>In Google Docs, click <strong>File → Share → Publish to web → Publish</strong>.</li>
+                    <li>Copy that published URL and paste it into the Chrome Web Store.</li>
+                  </ol>
+                  <button
+                    onClick={() => {
+                      const fullPolicy = `# Privacy Policy for Chronotask
+Last Updated: November 6, 2026
+Developer Contact: dagmayalew489@gmail.com
+
+Single Purpose Commitment:
+Chronotask is a personal productivity extension and task manager designed solely to help users create, organize, and synchronize their personal tasks with Google Tasks and block focus time on Google Calendar.
+
+1. Overview and Core Principles
+Chronotask is designed with an offline-first architecture prioritizing user privacy. We do not sell your personal data, we do not show advertisements, and we do not track your internet browsing activities across websites.
+
+2. Information Collected and Permissions Requested
+Chronotask requests only the minimum necessary permissions in compliance with Chrome Web Store Minimal Permissions policy:
+- Storage API (storage): Used to cache your task lists, tasks, and settings locally on your device for offline productivity.
+- Side Panel API (sidePanel): Used to allow docking the task manager alongside web pages in Google Chrome for personal note-taking.
+
+3. How We Use and Store Data
+- Local Storage: All tasks and settings are stored locally on your device.
+- Google Synchronization: When you connect your Google Account, your tasks and calendar events are transmitted directly between your browser and Google's official servers via encrypted HTTPS connections.
+- No Central Data Collection: We do not operate external third-party tracking servers that collect or aggregate your task content.
+
+4. Compliance with Google API Services User Data Policy
+Chronotask's use and transfer of information received from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements:
+- We never use Google Workspace data for serving advertisements.
+- We never sell or transfer Google user data to data brokers.
+- We never use your data for training machine learning or artificial intelligence models.
+
+5. Your Rights and Data Deletion
+- You can delete individual tasks or lists at any time through the application interface.
+- You can sign out of your Google Account at any time, which immediately terminates and discards active access tokens.
+- Uninstalling the extension immediately removes all locally cached data from your computer.
+
+6. Developer Certification & Inquiries
+We certify that our collection and use of user data strictly complies with the Chrome Web Store Developer Program Policies.
+Developer Contact: dagmayalew489@gmail.com`;
+                      handleCopyText(fullPolicy, 'full_policy_doc');
+                    }}
+                    className="mt-1 flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition"
+                  >
+                    {copiedField === 'full_policy_doc' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedField === 'full_policy_doc' ? 'Copied Full Policy!' : 'Copy Policy Text for Google Docs / Gist'}</span>
+                  </button>
+                </div>
               </div>
 
               {storeFields.map((field) => (
@@ -288,6 +341,64 @@ export const ExtensionExportModal: React.FC<ExtensionExportModalProps> = ({
                   <li><strong className="text-neutral-800 dark:text-neutral-200">Side Panel:</strong> Click "Dock to Side Panel" in the popup to keep tasks visible while you browse.</li>
                   <li><strong className="text-neutral-800 dark:text-neutral-200">Today's Badge:</strong> The red badge count reflects tasks scheduled for today.</li>
                 </ul>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'extension_auth' && (
+            <div className="space-y-4 text-xs">
+              <div className="border border-blue-200 dark:border-blue-900/60 bg-blue-50/50 dark:bg-blue-950/20 rounded-md p-4 space-y-2">
+                <h3 className="font-bold text-sm text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+                  <span className="text-blue-600">Why does Google Sign-In not open inside the extension popup?</span>
+                </h3>
+                <p className="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+                  Google Chrome extensions run on a sandboxed <code className="font-mono bg-blue-100 dark:bg-blue-900/40 px-1 py-0.5 rounded text-[11px]">chrome-extension://</code> internal protocol. Google OAuth 2.0 and Firebase Authentication security standards strictly restrict web popup authentication to registered, verified HTTP/HTTPS origins.
+                </p>
+                <p className="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+                  Additionally, Chrome automatically closes any extension popup the moment focus moves to another window (such as an OAuth consent screen), immediately terminating any in-progress sign-in attempts.
+                </p>
+              </div>
+
+              <div className="border border-neutral-200 dark:border-neutral-800 rounded-md p-4 space-y-3 bg-neutral-50/40 dark:bg-neutral-950/40">
+                <h4 className="font-semibold text-xs uppercase tracking-wider font-mono text-neutral-800 dark:text-neutral-200">
+                  How Chronotask Google Sync Works:
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded">
+                    <span className="font-mono text-[10px] text-blue-600 font-bold block mb-1">STEP 1</span>
+                    <p className="font-medium text-neutral-900 dark:text-neutral-100 mb-1">Open Web Dashboard</p>
+                    <p className="text-neutral-500 text-[11px]">Click "Open Full Dashboard" (<ExternalLink className="w-2.5 h-2.5 inline" />) in the extension popup header to open the web app.</p>
+                  </div>
+
+                  <div className="p-3 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded">
+                    <span className="font-mono text-[10px] text-blue-600 font-bold block mb-1">STEP 2</span>
+                    <p className="font-medium text-neutral-900 dark:text-neutral-100 mb-1">Authenticate with Google</p>
+                    <p className="text-neutral-500 text-[11px]">Click "Sign In with Google" in the top navbar. Grant access to Google Tasks and Calendar.</p>
+                  </div>
+
+                  <div className="p-3 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded">
+                    <span className="font-mono text-[10px] text-blue-600 font-bold block mb-1">STEP 3</span>
+                    <p className="font-medium text-neutral-900 dark:text-neutral-100 mb-1">Offline & Extension Ready</p>
+                    <p className="text-neutral-500 text-[11px]">Tasks synchronize bidirectionally through local storage and the cloud queue across all views.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-3 border border-neutral-200 dark:border-neutral-800 rounded bg-white dark:bg-neutral-900">
+                <div>
+                  <span className="font-semibold text-neutral-900 dark:text-neutral-100 block">Web Dashboard Link:</span>
+                  <span className="font-mono text-[11px] text-neutral-500">{hostedPrivacyUrl.replace('/privacy.html', '')}</span>
+                </div>
+                <a
+                  href={hostedPrivacyUrl.replace('/privacy.html', '')}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold flex items-center gap-1.5 transition"
+                >
+                  <span>Launch Web App</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
               </div>
             </div>
           )}

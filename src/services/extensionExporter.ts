@@ -47,17 +47,11 @@ export const generateExtensionFiles = (clientId?: string): ExtensionFile[] => {
   const manifestJson = {
     manifest_version: 3,
     name: 'Chronotask - Task Manager & Calendar Sync',
-    version: '1.0.0',
-    description: 'Personal task manager with Google Tasks, Google Calendar time-blocking, and offline access.',
+    version: '1.1.0',
+    description: 'Minimalist personal task manager with folders, priority sorting, offline access, and side panel productivity.',
     permissions: [
       'storage',
-      'alarms',
-      'identity',
       'sidePanel'
-    ],
-    host_permissions: [
-      'https://tasks.googleapis.com/*',
-      'https://www.googleapis.com/*'
     ],
     action: {
       default_popup: 'popup.html',
@@ -84,13 +78,6 @@ export const generateExtensionFiles = (clientId?: string): ExtensionFile[] => {
         description: 'Open Chronotask Task Manager'
       }
     },
-    oauth2: {
-      client_id: oAuthClientId,
-      scopes: [
-        'https://www.googleapis.com/auth/tasks',
-        'https://www.googleapis.com/auth/calendar.events'
-      ]
-    },
     icons: {
       '16': 'icons/icon16.png',
       '48': 'icons/icon48.png',
@@ -100,8 +87,7 @@ export const generateExtensionFiles = (clientId?: string): ExtensionFile[] => {
 
   const backgroundJs = `// Chronotask Service Worker
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('Chronotask extension installed successfully.');
-  // Set initial badge
+  console.log('Chronotask extension v1.1.0 installed successfully.');
   updateBadge();
 });
 
@@ -114,9 +100,9 @@ if (chrome.sidePanel && chrome.sidePanel.setPanelBehavior) {
 async function updateBadge() {
   try {
     const data = await chrome.storage.local.get(['chronotask_tasks_v1']);
-    const tasks = data.chronotask_tasks_v1 ? JSON.parse(data.chronotask_tasks_v1) : [];
+    const raw = data.chronotask_tasks_v1 ? JSON.parse(data.chronotask_tasks_v1) : [];
     const today = new Date().toISOString().split('T')[0];
-    const pendingToday = tasks.filter(t => !t.completed && t.due === today).length;
+    const pendingToday = raw.filter(t => !t.completed && t.due === today).length;
     
     if (pendingToday > 0) {
       chrome.action.setBadgeText({ text: String(pendingToday) });
@@ -148,14 +134,14 @@ chrome.storage.onChanged.addListener((changes, area) => {
 <body>
   <header class="header">
     <div class="logo">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5">
         <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
       </svg>
-      <span>Chronotask</span>
+      <span>Chronotask <small style="font-size:10px; color:#2563eb; font-family:monospace;">v1.1</small></span>
     </div>
     <div class="actions">
       <button id="openFullApp" title="Open Full Dashboard">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
           <polyline points="15 3 21 3 21 9"></polyline>
           <line x1="10" y1="14" x2="21" y2="3"></line>
@@ -166,17 +152,74 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
   <section class="quick-add">
     <input type="text" id="quickTaskInput" placeholder="Add task... (Press Enter)" autofocus>
+    <div class="quick-add-bar">
+      <select id="quickFolderSelect" class="mini-select">
+        <option value="default_my_tasks">📁 General</option>
+        <option value="default_work">📁 Work & Projects</option>
+        <option value="default_personal">📁 Personal</option>
+        <option value="default_urgent">📁 Urgent & Critical</option>
+      </select>
+      <select id="quickPrioritySelect" class="mini-select">
+        <option value="urgent">Urgent</option>
+        <option value="high">High</option>
+        <option value="medium" selected>Medium</option>
+        <option value="low">Low</option>
+      </select>
+    </div>
   </section>
 
-  <div class="filter-tabs">
-    <button class="tab active" data-filter="today">Today</button>
-    <button class="tab" data-filter="all">All</button>
-    <button class="tab" data-filter="upcoming">Upcoming</button>
+  <div class="filter-controls">
+    <div class="filter-tabs">
+      <button class="tab active" data-filter="today">Today</button>
+      <button class="tab" data-filter="all">All</button>
+      <button class="tab" data-filter="upcoming">Upcoming</button>
+    </div>
+    <button id="sortToggleBtn" class="sort-btn" title="Toggle Priority High to Low">
+      ↓ Priority
+    </button>
   </div>
 
   <main id="taskList" class="task-list">
-    <!-- Rendered dynamically -->
+    <!-- Tasks list rendered dynamically -->
   </main>
+
+  <!-- Inline Task Detail & Edit Drawer -->
+  <div id="detailDrawer" class="detail-drawer hidden">
+    <div class="detail-header">
+      <span class="detail-title-label">Task Details</span>
+      <button id="closeDetailBtn" class="icon-btn">✕</button>
+    </div>
+    <div class="detail-body">
+      <label class="form-label">Task Title</label>
+      <input type="text" id="editTaskTitle" class="form-input">
+
+      <label class="form-label">Priority (High to Low)</label>
+      <div class="priority-chips">
+        <button type="button" class="chip" data-p="urgent">Urgent</button>
+        <button type="button" class="chip" data-p="high">High</button>
+        <button type="button" class="chip" data-p="medium">Medium</button>
+        <button type="button" class="chip" data-p="low">Low</button>
+      </div>
+
+      <label class="form-label">Folder / Type</label>
+      <select id="editTaskFolder" class="form-input">
+        <option value="default_my_tasks">📁 General</option>
+        <option value="default_work">📁 Work & Projects</option>
+        <option value="default_personal">📁 Personal</option>
+        <option value="default_urgent">📁 Urgent & Critical</option>
+      </select>
+
+      <label class="form-label">Due Date</label>
+      <input type="date" id="editTaskDue" class="form-input">
+
+      <label class="form-label">Notes</label>
+      <textarea id="editTaskNotes" rows="3" class="form-input" placeholder="Add notes..."></textarea>
+    </div>
+    <div class="detail-footer">
+      <button id="deleteTaskBtn" class="btn-delete">Delete</button>
+      <button id="saveDetailBtn" class="btn-save">Save Changes</button>
+    </div>
+  </div>
 
   <footer class="footer">
     <span id="syncIndicator">Offline Ready</span>
@@ -196,6 +239,8 @@ body {
   color: #171717;
   display: flex;
   flex-direction: column;
+  position: relative;
+  overflow: hidden;
 }
 .header {
   display: flex;
@@ -229,9 +274,9 @@ body {
   background: #ffffff;
   border-bottom: 1px solid #f0f0f0;
 }
-.quick-add input {
+.quick-add input[type="text"] {
   width: 100%;
-  padding: 8px 10px;
+  padding: 7px 10px;
   border-radius: 4px;
   background: #fafaf9;
   border: 1px solid #e5e5e5;
@@ -239,12 +284,32 @@ body {
   font-size: 13px;
   outline: none;
 }
-.quick-add input:focus {
-  border-color: #171717;
+.quick-add input[type="text"]:focus {
+  border-color: #2563eb;
+}
+.quick-add-bar {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.mini-select {
+  font-size: 11px;
+  padding: 3px 6px;
+  border: 1px solid #e5e5e5;
+  border-radius: 4px;
+  background: #fafaf9;
+  color: #404040;
+  outline: none;
+  cursor: pointer;
+}
+.filter-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px 4px 14px;
 }
 .filter-tabs {
   display: flex;
-  padding: 8px 14px 4px 14px;
   gap: 4px;
 }
 .tab {
@@ -261,6 +326,21 @@ body {
   background: #2563eb;
   color: #ffffff;
 }
+.sort-btn {
+  background: transparent;
+  border: 1px solid #e5e5e5;
+  color: #2563eb;
+  font-size: 10px;
+  font-family: monospace;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.sort-btn:hover {
+  background: #eff6ff;
+  border-color: #2563eb;
+}
 .task-list {
   flex: 1;
   overflow-y: auto;
@@ -272,9 +352,13 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 4px;
+  padding: 9px 4px;
   border-bottom: 1px solid #f0f0f0;
-  transition: opacity 0.15s;
+  transition: background 0.15s;
+  cursor: pointer;
+}
+.task-item:hover {
+  background: #f5f5f4;
 }
 .task-item.completed {
   opacity: 0.4;
@@ -285,8 +369,8 @@ body {
 }
 .task-checkbox {
   cursor: pointer;
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
   accent-color: #2563eb;
 }
 .task-content {
@@ -300,11 +384,23 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.task-badge {
+.task-meta {
   font-size: 10px;
-  font-family: monospace;
   color: #737373;
+  font-family: monospace;
+  margin-top: 2px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
 }
+.priority-tag {
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.priority-urgent { color: #e11d48; }
+.priority-high { color: #e11d48; }
+.priority-medium { color: #2563eb; }
+.priority-low { color: #a3a3a3; }
 .footer {
   display: flex;
   justify-content: space-between;
@@ -328,10 +424,119 @@ body {
   border-color: #171717;
   color: #171717;
 }
+
+/* Detail Drawer */
+.detail-drawer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #ffffff;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+}
+.detail-drawer.hidden { display: none; }
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e5e5e5;
+  font-weight: 600;
+  font-size: 13px;
+}
+.icon-btn {
+  background: transparent;
+  border: none;
+  color: #737373;
+  cursor: pointer;
+  font-size: 14px;
+}
+.detail-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.form-label {
+  font-size: 10px;
+  font-family: monospace;
+  text-transform: uppercase;
+  color: #737373;
+  letter-spacing: 0.05em;
+  margin-top: 4px;
+}
+.form-input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #e5e5e5;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #171717;
+  background: #fafaf9;
+  outline: none;
+}
+.form-input:focus { border-color: #2563eb; }
+.priority-chips {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+.chip {
+  padding: 4px 6px;
+  border: 1px solid #e5e5e5;
+  border-radius: 4px;
+  background: #fafaf9;
+  font-size: 10px;
+  font-family: monospace;
+  cursor: pointer;
+  text-align: center;
+}
+.chip.selected[data-p="urgent"] { background: #e11d48; color: #fff; border-color: #e11d48; font-weight: 700; }
+.chip.selected[data-p="high"] { background: #fef2f2; color: #e11d48; border-color: #e11d48; font-weight: 700; }
+.chip.selected[data-p="medium"] { background: #2563eb; color: #fff; border-color: #2563eb; font-weight: 700; }
+.chip.selected[data-p="low"] { background: #e5e5e5; color: #171717; border-color: #a3a3a3; font-weight: 700; }
+.detail-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-top: 1px solid #e5e5e5;
+}
+.btn-delete {
+  background: transparent;
+  border: none;
+  color: #e11d48;
+  font-size: 11px;
+  cursor: pointer;
+}
+.btn-save {
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
 `;
 
-  const popupJs = `// Chronotask Extension Popup Logic
+  const popupJs = `// Chronotask Extension Popup Logic v1.1.0
 let currentFilter = 'today';
+let prioritySortHighToLow = true;
+let editingTaskId = null;
+
+const PRIORITY_WEIGHT = {
+  urgent: 4,
+  high: 3,
+  medium: 2,
+  low: 1,
+};
 
 document.addEventListener('DOMContentLoaded', async () => {
   renderTasks();
@@ -340,7 +545,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (e.key === 'Enter') {
       const title = e.target.value.trim();
       if (!title) return;
-      await addTask(title);
+      const folder = document.getElementById('quickFolderSelect').value;
+      const priority = document.getElementById('quickPrioritySelect').value;
+      await addTask(title, folder, priority);
       e.target.value = '';
       renderTasks();
     }
@@ -355,8 +562,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
+  // Sort toggle
+  document.getElementById('sortToggleBtn').addEventListener('click', () => {
+    prioritySortHighToLow = !prioritySortHighToLow;
+    document.getElementById('sortToggleBtn').textContent = prioritySortHighToLow ? '↓ Priority' : '↑ Priority';
+    renderTasks();
+  });
+
   document.getElementById('openFullApp').addEventListener('click', () => {
-    chrome.tabs.create({ url: chrome.runtime.getURL('index.html') });
+    chrome.tabs.create({ url: 'https://ais-pre-onshekxu4tnyswwyz7v5qf-225900507391.europe-west2.run.app' });
   });
 
   const sidePanelBtn = document.getElementById('openSidePanelBtn');
@@ -370,26 +584,47 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
+
+  // Drawer handlers
+  document.getElementById('closeDetailBtn').addEventListener('click', closeDetailDrawer);
+  document.getElementById('saveDetailBtn').addEventListener('click', saveTaskDetail);
+  document.getElementById('deleteTaskBtn').addEventListener('click', deleteTask);
+
+  document.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+      chip.classList.add('selected');
+    });
+  });
 });
 
 async function getStoredTasks() {
   const result = await chrome.storage.local.get(['chronotask_tasks_v1']);
-  return result.chronotask_tasks_v1 ? JSON.parse(result.chronotask_tasks_v1) : [];
+  const raw = result.chronotask_tasks_v1 ? JSON.parse(result.chronotask_tasks_v1) : [];
+  // Ensure full backwards compatibility with v1 tasks
+  return raw.map(t => ({
+    ...t,
+    priority: t.priority || 'medium',
+    folderId: t.folderId || t.listId || 'default_my_tasks',
+  }));
 }
 
 async function saveStoredTasks(tasks) {
   await chrome.storage.local.set({ 'chronotask_tasks_v1': JSON.stringify(tasks) });
 }
 
-async function addTask(title) {
+async function addTask(title, folderId, priority) {
   const tasks = await getStoredTasks();
   const newTask = {
     id: 't_' + Date.now(),
     title,
+    listId: folderId || 'default_my_tasks',
+    folderId: folderId || 'default_my_tasks',
     completed: false,
-    priority: 'medium',
+    priority: priority || 'medium',
     due: new Date().toISOString().split('T')[0],
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     syncStatus: 'local_only'
   };
   tasks.unshift(newTask);
@@ -402,9 +637,62 @@ async function toggleTask(id) {
   if (task) {
     task.completed = !task.completed;
     task.completedAt = task.completed ? new Date().toISOString() : null;
+    task.updatedAt = new Date().toISOString();
     await saveStoredTasks(tasks);
     renderTasks();
   }
+}
+
+function openDetailDrawer(task) {
+  editingTaskId = task.id;
+  document.getElementById('editTaskTitle').value = task.title;
+  document.getElementById('editTaskFolder').value = task.folderId || task.listId || 'default_my_tasks';
+  document.getElementById('editTaskDue').value = task.due || '';
+  document.getElementById('editTaskNotes').value = task.notes || '';
+
+  document.querySelectorAll('.chip').forEach(c => {
+    c.classList.toggle('selected', c.dataset.p === (task.priority || 'medium'));
+  });
+
+  document.getElementById('detailDrawer').classList.remove('hidden');
+}
+
+function closeDetailDrawer() {
+  document.getElementById('detailDrawer').classList.add('hidden');
+  editingTaskId = null;
+}
+
+async function saveTaskDetail() {
+  if (!editingTaskId) return;
+  const tasks = await getStoredTasks();
+  const task = tasks.find(t => t.id === editingTaskId);
+  if (task) {
+    const title = document.getElementById('editTaskTitle').value.trim();
+    if (!title) return;
+    const selectedChip = document.querySelector('.chip.selected');
+    const priority = selectedChip ? selectedChip.dataset.p : 'medium';
+
+    task.title = title;
+    task.folderId = document.getElementById('editTaskFolder').value;
+    task.listId = task.folderId;
+    task.due = document.getElementById('editTaskDue').value || undefined;
+    task.notes = document.getElementById('editTaskNotes').value.trim() || undefined;
+    task.priority = priority;
+    task.updatedAt = new Date().toISOString();
+
+    await saveStoredTasks(tasks);
+    closeDetailDrawer();
+    renderTasks();
+  }
+}
+
+async function deleteTask() {
+  if (!editingTaskId) return;
+  let tasks = await getStoredTasks();
+  tasks = tasks.filter(t => t.id !== editingTaskId);
+  await saveStoredTasks(tasks);
+  closeDetailDrawer();
+  renderTasks();
 }
 
 async function renderTasks() {
@@ -419,8 +707,20 @@ async function renderTasks() {
     filtered = tasks.filter(t => t.due && t.due > today && !t.completed);
   }
 
+  // Priority Sorting (High to Low)
+  filtered.sort((a, b) => {
+    const wa = PRIORITY_WEIGHT[a.priority] || 2;
+    const wb = PRIORITY_WEIGHT[b.priority] || 2;
+    if (prioritySortHighToLow) {
+      if (wb !== wa) return wb - wa;
+    } else {
+      if (wa !== wb) return wa - wb;
+    }
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
   if (filtered.length === 0) {
-    container.innerHTML = '<div style="text-align:center; padding: 30px; color:#64748b; font-size:12px;">No tasks found. Press Enter above to add one!</div>';
+    container.innerHTML = '<div style="text-align:center; padding: 35px 20px; color:#a3a3a3; font-size:12px;">No tasks in this view. Press Enter above to add one.</div>';
     return;
   }
 
@@ -429,15 +729,32 @@ async function renderTasks() {
       <input type="checkbox" class="task-checkbox" \${t.completed ? 'checked' : ''}>
       <div class="task-content">
         <div class="task-title">\${escapeHtml(t.title)}</div>
+        <div class="task-meta">
+          <span class="priority-tag priority-\${t.priority || 'medium'}">\${t.priority || 'medium'}</span>
+          \${t.due ? \`<span>· \${t.due === today ? 'Today' : t.due}</span>\` : ''}
+          \${t.notes ? '<span>· Note</span>' : ''}
+        </div>
       </div>
-      \${t.due ? \`<span class="task-badge">\${t.due === today ? 'Today' : t.due}</span>\` : ''}
     </div>
   \`).join('');
 
   container.querySelectorAll('.task-checkbox').forEach(cb => {
-    cb.addEventListener('change', (e) => {
+    cb.addEventListener('click', (e) => {
+      e.stopPropagation();
       const parent = e.target.closest('.task-item');
       toggleTask(parent.dataset.id);
+    });
+  });
+
+  // Click on task opens detail edit drawer
+  container.querySelectorAll('.task-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      if (e.target.classList.contains('task-checkbox')) return;
+      const taskId = item.dataset.id;
+      const targetTask = tasks.find(t => t.id === taskId);
+      if (targetTask) {
+        openDetailDrawer(targetTask);
+      }
     });
   });
 }
@@ -448,6 +765,7 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 `;
+
 
   const sidepanelHtml = `<!DOCTYPE html>
 <html lang="en">
@@ -620,7 +938,7 @@ export const exportExtensionAsZip = async (clientId?: string): Promise<void> => 
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'chronotask-extension-v1.0.0.zip';
+  a.download = 'chronotask-extension-v1.1.0.zip';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
