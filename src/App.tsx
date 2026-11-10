@@ -30,6 +30,7 @@ import { SyncQueueModal } from './components/SyncQueueModal';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { BatchActionBar } from './components/BatchActionBar';
 import { TrendsDashboard } from './components/TrendsDashboard';
+import { AuthErrorModal } from './components/AuthErrorModal';
 import { 
   Search, 
   Filter, 
@@ -91,6 +92,7 @@ export default function App() {
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
   const [isSyncQueueModalOpen, setIsSyncQueueModalOpen] = useState(false);
   const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
+  const [authError, setAuthError] = useState<{ code: string; message: string } | null>(null);
 
   // Multi-Task Selection & Batch Action Mode
   const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false);
@@ -140,6 +142,83 @@ export default function App() {
   useEffect(() => {
     storageService.saveCalendarCache(calendarEvents);
   }, [calendarEvents]);
+
+  // Bidirectional Chrome Extension Content Script Sync Bridge
+  useEffect(() => {
+    // 1. Broadcast web app state to extension's content script whenever tasks, lists, auth change
+    const broadcastToExtension = () => {
+      window.postMessage({
+        type: 'CHRONOTASK_SYNC_TO_EXTENSION',
+        source: 'chronotask-web-app',
+        tasks,
+        lists,
+        accessToken,
+        user: user ? { email: user.email, displayName: user.displayName } : null,
+        lastSynced: storageService.getLastSynced() || new Date().toISOString(),
+      }, '*');
+    };
+
+    broadcastToExtension();
+  }, [tasks, lists, accessToken, user]);
+
+  useEffect(() => {
+    // 2. Listen for messages from extension content script
+    const handleExtensionSyncMessage = (event: MessageEvent) => {
+      if (!event.data || event.source !== window) return;
+
+      // When extension provides its stored tasks
+      if (event.data.type === 'CHRONOTASK_SYNC_FROM_EXTENSION') {
+        const extTasks = event.data.tasks as TaskItemType[];
+        if (Array.isArray(extTasks) && extTasks.length > 0) {
+          setTasks(prev => {
+            const taskMap = new Map<string, TaskItemType>();
+            prev.forEach(t => taskMap.set(t.id, t));
+
+            let hasChanges = false;
+            extTasks.forEach(extTask => {
+              const local = taskMap.get(extTask.id);
+              if (!local) {
+                // New task created in extension popup!
+                taskMap.set(extTask.id, extTask);
+                hasChanges = true;
+                if (accessToken) {
+                  storageService.enqueueSync('CREATE_TASK', extTask);
+                }
+              } else {
+                const extTime = new Date(extTask.updatedAt || 0).getTime();
+                const localTime = new Date(local.updatedAt || 0).getTime();
+                if (extTime > localTime) {
+                  taskMap.set(extTask.id, { ...local, ...extTask });
+                  hasChanges = true;
+                  if (accessToken && local.googleTaskId) {
+                    storageService.enqueueSync('UPDATE_TASK', { ...local, ...extTask });
+                  }
+                }
+              }
+            });
+
+            return hasChanges ? Array.from(taskMap.values()) : prev;
+          });
+        }
+      }
+
+      // Web app ping request from content script
+      if (event.data.type === 'CHRONOTASK_PING_FOR_STATE') {
+        window.postMessage({
+          type: 'CHRONOTASK_SYNC_TO_EXTENSION',
+          source: 'chronotask-web-app',
+          tasks: storageService.loadTasks(),
+          lists: storageService.loadLists(),
+          accessToken,
+          user: user ? { email: user.email, displayName: user.displayName } : null,
+          lastSynced: storageService.getLastSynced() || new Date().toISOString(),
+        }, '*');
+      }
+    };
+
+    window.addEventListener('message', handleExtensionSyncMessage);
+    return () => window.removeEventListener('message', handleExtensionSyncMessage);
+  }, [accessToken, user]);
 
   // Initialize Firebase Auth listener on mount
   useEffect(() => {
@@ -267,6 +346,7 @@ export default function App() {
   const handleLogin = async () => {
     try {
       setIsSyncing(true);
+      setAuthError(null);
       const result = await googleSignIn();
       if (result) {
         setUser(result.user);
@@ -275,6 +355,10 @@ export default function App() {
       }
     } catch (err: any) {
       console.error('Login error:', err);
+      setAuthError({
+        code: err?.code || 'auth/unknown',
+        message: err?.message || 'Failed to authenticate with Google.',
+      });
     } finally {
       setIsSyncing(false);
     }
@@ -1343,6 +1427,14 @@ export default function App() {
         <KeyboardShortcutsModal
           isOpen={isShortcutsHelpOpen}
           onClose={() => setIsShortcutsHelpOpen(false)}
+        />
+
+        {/* Firebase / Google Auth Error Guidance Modal */}
+        <AuthErrorModal
+          isOpen={Boolean(authError)}
+          onClose={() => setAuthError(null)}
+          errorCode={authError?.code}
+          errorMessage={authError?.message}
         />
       </div>
     </div>

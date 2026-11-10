@@ -47,11 +47,20 @@ export const generateExtensionFiles = (clientId?: string): ExtensionFile[] => {
   const manifestJson = {
     manifest_version: 3,
     name: 'Chronotask - Task Manager & Calendar Sync',
-    version: '1.1.0',
-    description: 'Minimalist personal task manager with folders, priority sorting, offline access, and side panel productivity.',
+    version: '1.2.0',
+    description: 'Minimalist personal task manager with folders, priority sorting, offline access, side panel, and Google Tasks sync.',
     permissions: [
       'storage',
       'sidePanel'
+    ],
+    content_scripts: [
+      {
+        matches: [
+          'https://task-manager-with-google.vercel.app/*'
+        ],
+        js: ['content.js'],
+        run_at: 'document_idle'
+      }
     ],
     action: {
       default_popup: 'popup.html',
@@ -85,9 +94,9 @@ export const generateExtensionFiles = (clientId?: string): ExtensionFile[] => {
     }
   };
 
-  const backgroundJs = `// Chronotask Service Worker
+  const backgroundJs = `// Chronotask Service Worker v1.2.0
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('Chronotask extension v1.1.0 installed successfully.');
+  console.log('Chronotask extension v1.2.0 installed successfully.');
   updateBadge();
 });
 
@@ -121,6 +130,13 @@ chrome.storage.onChanged.addListener((changes, area) => {
     updateBadge();
   }
 });
+
+// Listen for sync completion messages
+chrome.runtime.onMessage.addListener((message) => {
+  if (message && message.type === 'SYNC_COMPLETED') {
+    updateBadge();
+  }
+});
 `;
 
   const popupHtml = `<!DOCTYPE html>
@@ -137,7 +153,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5">
         <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
       </svg>
-      <span>Chronotask <small style="font-size:10px; color:#2563eb; font-family:monospace;">v1.1</small></span>
+      <span>Chronotask <small style="font-size:10px; color:#2563eb; font-family:monospace;">v1.2</small></span>
     </div>
     <div class="actions">
       <button id="openFullApp" title="Open Full Dashboard">
@@ -553,7 +569,7 @@ body {
 }
 `;
 
-  const popupJs = `// Chronotask Extension Popup Logic v1.1.0
+  const popupJs = `// Chronotask Extension Popup Logic v1.2.0
 let currentFilter = 'today';
 let prioritySortHighToLow = true;
 let editingTaskId = null;
@@ -567,50 +583,84 @@ const PRIORITY_WEIGHT = {
 
 document.addEventListener('DOMContentLoaded', async () => {
   renderTasks();
+  updateSyncStatus();
 
-  document.getElementById('quickTaskInput').addEventListener('keydown', async (e) => {
-    if (e.key === 'Enter') {
-      const title = e.target.value.trim();
-      if (!title) return;
-      const folder = document.getElementById('quickFolderSelect').value;
-      const priority = document.getElementById('quickPrioritySelect').value;
-      await addTask(title, folder, priority);
-      e.target.value = '';
-      renderTasks();
-    }
-  });
+  // Listen for real-time changes synced from Vercel Web App
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local') {
+        if (changes.chronotask_tasks_v1) {
+          renderTasks();
+        }
+        if (changes.chronotask_last_synced || changes.chronotask_user) {
+          updateSyncStatus();
+        }
+      }
+    });
+  }
+
+  const taskInput = document.getElementById('quickTaskInput');
+  if (taskInput) {
+    taskInput.addEventListener('keydown', async (e) => {
+      if (e.key === 'Enter') {
+        const title = e.target.value.trim();
+        if (!title) return;
+        const folderEl = document.getElementById('quickFolderSelect');
+        const folder = folderEl ? folderEl.value : 'default_my_tasks';
+        const priorityEl = document.getElementById('quickPrioritySelect');
+        const priority = priorityEl ? priorityEl.value : 'medium';
+        await addTask(title, folder, priority);
+        e.target.value = '';
+        renderTasks();
+      }
+    });
+  }
 
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', (e) => {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
-      currentFilter = tab.dataset.filter;
+      currentFilter = tab.dataset.filter || 'today';
       renderTasks();
     });
   });
 
   // Sort toggle
-  document.getElementById('sortToggleBtn').addEventListener('click', () => {
-    prioritySortHighToLow = !prioritySortHighToLow;
-    document.getElementById('sortToggleBtn').textContent = prioritySortHighToLow ? '↓ Priority' : '↑ Priority';
-    renderTasks();
-  });
+  const sortToggleBtn = document.getElementById('sortToggleBtn');
+  if (sortToggleBtn) {
+    sortToggleBtn.addEventListener('click', () => {
+      prioritySortHighToLow = !prioritySortHighToLow;
+      sortToggleBtn.textContent = prioritySortHighToLow ? '↓ Priority' : '↑ Priority';
+      renderTasks();
+    });
+  }
 
-  document.getElementById('openFullApp').addEventListener('click', () => {
-    chrome.tabs.create({ url: 'https://task-manager-with-google.vercel.app' });
-  });
+  const openFullApp = document.getElementById('openFullApp');
+  if (openFullApp) {
+    openFullApp.addEventListener('click', () => {
+      if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+        chrome.tabs.create({ url: 'https://task-manager-with-google.vercel.app' });
+      } else {
+        window.open('https://task-manager-with-google.vercel.app', '_blank');
+      }
+    });
+  }
 
   const footerSync = document.getElementById('openFullAppFooter');
   if (footerSync) {
     footerSync.addEventListener('click', () => {
-      chrome.tabs.create({ url: 'https://task-manager-with-google.vercel.app' });
+      if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+        chrome.tabs.create({ url: 'https://task-manager-with-google.vercel.app' });
+      } else {
+        window.open('https://task-manager-with-google.vercel.app', '_blank');
+      }
     });
   }
 
   const sidePanelBtn = document.getElementById('openSidePanelBtn');
   if (sidePanelBtn) {
     sidePanelBtn.addEventListener('click', async () => {
-      if (chrome.sidePanel && chrome.sidePanel.open) {
+      if (typeof chrome !== 'undefined' && chrome.sidePanel && chrome.sidePanel.open) {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tab && tab.id) {
           chrome.sidePanel.open({ tabId: tab.id });
@@ -620,9 +670,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Drawer handlers
-  document.getElementById('closeDetailBtn').addEventListener('click', closeDetailDrawer);
-  document.getElementById('saveDetailBtn').addEventListener('click', saveTaskDetail);
-  document.getElementById('deleteTaskBtn').addEventListener('click', deleteTask);
+  const closeDetailBtn = document.getElementById('closeDetailBtn');
+  if (closeDetailBtn) closeDetailBtn.addEventListener('click', closeDetailDrawer);
+
+  const saveDetailBtn = document.getElementById('saveDetailBtn');
+  if (saveDetailBtn) saveDetailBtn.addEventListener('click', saveTaskDetail);
+
+  const deleteTaskBtn = document.getElementById('deleteTaskBtn');
+  if (deleteTaskBtn) deleteTaskBtn.addEventListener('click', deleteTask);
 
   document.querySelectorAll('.chip').forEach(chip => {
     chip.addEventListener('click', () => {
@@ -633,18 +688,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function getStoredTasks() {
-  const result = await chrome.storage.local.get(['chronotask_tasks_v1']);
-  const raw = result.chronotask_tasks_v1 ? JSON.parse(result.chronotask_tasks_v1) : [];
-  // Ensure full backwards compatibility with v1 tasks
-  return raw.map(t => ({
-    ...t,
-    priority: t.priority || 'medium',
-    folderId: t.folderId || t.listId || 'default_my_tasks',
-  }));
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    const result = await chrome.storage.local.get(['chronotask_tasks_v1']);
+    const raw = result.chronotask_tasks_v1 ? JSON.parse(result.chronotask_tasks_v1) : [];
+    return raw.map(t => ({
+      ...t,
+      priority: t.priority || 'medium',
+      folderId: t.folderId || t.listId || 'default_my_tasks',
+    }));
+  }
+  return [];
 }
 
 async function saveStoredTasks(tasks) {
-  await chrome.storage.local.set({ 'chronotask_tasks_v1': JSON.stringify(tasks) });
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    await chrome.storage.local.set({ 'chronotask_tasks_v1': JSON.stringify(tasks) });
+  }
 }
 
 async function addTask(title, folderId, priority) {
@@ -678,21 +737,32 @@ async function toggleTask(id) {
 }
 
 function openDetailDrawer(task) {
+  const drawer = document.getElementById('detailDrawer');
+  if (!drawer) return;
   editingTaskId = task.id;
-  document.getElementById('editTaskTitle').value = task.title;
-  document.getElementById('editTaskFolder').value = task.folderId || task.listId || 'default_my_tasks';
-  document.getElementById('editTaskDue').value = task.due || '';
-  document.getElementById('editTaskNotes').value = task.notes || '';
+
+  const titleEl = document.getElementById('editTaskTitle');
+  if (titleEl) titleEl.value = task.title || '';
+
+  const folderEl = document.getElementById('editTaskFolder');
+  if (folderEl) folderEl.value = task.folderId || task.listId || 'default_my_tasks';
+
+  const dueEl = document.getElementById('editTaskDue');
+  if (dueEl) dueEl.value = task.due || '';
+
+  const notesEl = document.getElementById('editTaskNotes');
+  if (notesEl) notesEl.value = task.notes || '';
 
   document.querySelectorAll('.chip').forEach(c => {
     c.classList.toggle('selected', c.dataset.p === (task.priority || 'medium'));
   });
 
-  document.getElementById('detailDrawer').classList.remove('hidden');
+  drawer.classList.remove('hidden');
 }
 
 function closeDetailDrawer() {
-  document.getElementById('detailDrawer').classList.add('hidden');
+  const drawer = document.getElementById('detailDrawer');
+  if (drawer) drawer.classList.add('hidden');
   editingTaskId = null;
 }
 
@@ -701,16 +771,26 @@ async function saveTaskDetail() {
   const tasks = await getStoredTasks();
   const task = tasks.find(t => t.id === editingTaskId);
   if (task) {
-    const title = document.getElementById('editTaskTitle').value.trim();
+    const titleEl = document.getElementById('editTaskTitle');
+    const title = titleEl ? titleEl.value.trim() : '';
     if (!title) return;
+
     const selectedChip = document.querySelector('.chip.selected');
-    const priority = selectedChip ? selectedChip.dataset.p : 'medium';
+    const priority = selectedChip && selectedChip.dataset.p ? selectedChip.dataset.p : 'medium';
+
+    const folderEl = document.getElementById('editTaskFolder');
+    if (folderEl) {
+      task.folderId = folderEl.value;
+      task.listId = task.folderId;
+    }
+
+    const dueEl = document.getElementById('editTaskDue');
+    task.due = dueEl && dueEl.value ? dueEl.value : undefined;
+
+    const notesEl = document.getElementById('editTaskNotes');
+    task.notes = notesEl && notesEl.value.trim() ? notesEl.value.trim() : undefined;
 
     task.title = title;
-    task.folderId = document.getElementById('editTaskFolder').value;
-    task.listId = task.folderId;
-    task.due = document.getElementById('editTaskDue').value || undefined;
-    task.notes = document.getElementById('editTaskNotes').value.trim() || undefined;
     task.priority = priority;
     task.updatedAt = new Date().toISOString();
 
@@ -730,8 +810,10 @@ async function deleteTask() {
 }
 
 async function renderTasks() {
-  const tasks = await getStoredTasks();
   const container = document.getElementById('taskList');
+  if (!container) return;
+
+  const tasks = await getStoredTasks();
   const today = new Date().toISOString().split('T')[0];
 
   let filtered = tasks;
@@ -767,29 +849,36 @@ async function renderTasks() {
 
   container.innerHTML = filtered.map(t => {
     const f = FOLDER_MAP[t.folderId] || { label: 'General', cls: '' };
-    return \`
-    <div class="task-item \${t.completed ? 'completed' : ''}" data-id="\${t.id}">
-      <input type="checkbox" class="task-checkbox" \${t.completed ? 'checked' : ''}>
-      <div class="task-content">
-        <div class="task-title">
-          <span class="folder-badge \${f.cls}">📁 \${f.label}</span>
-          \${escapeHtml(t.title)}
-        </div>
-        <div class="task-meta">
-          <span class="priority-tag priority-\${t.priority || 'medium'}">\${t.priority || 'medium'}</span>
-          \${t.due ? \`<span>· \${t.due === today ? 'Today' : t.due}</span>\` : ''}
-          \${t.notes ? '<span>· Note</span>' : ''}
-        </div>
-      </div>
-    </div>
-  \`;
+    const safeTitle = escapeHtml(t.title || '');
+    const isCompleted = Boolean(t.completed);
+    const pTag = t.priority || 'medium';
+    const dueLabel = t.due ? (t.due === today ? 'Today' : t.due) : '';
+    const dueSpan = dueLabel ? '<span>· ' + dueLabel + '</span>' : '';
+    const noteSpan = t.notes ? '<span>· Note</span>' : '';
+
+    return '<div class="task-item ' + (isCompleted ? 'completed' : '') + '" data-id="' + t.id + '">' +
+      '<input type="checkbox" class="task-checkbox" ' + (isCompleted ? 'checked' : '') + '>' +
+      '<div class="task-content">' +
+        '<div class="task-title">' +
+          '<span class="folder-badge ' + f.cls + '">📁 ' + f.label + '</span> ' +
+          safeTitle +
+        '</div>' +
+        '<div class="task-meta">' +
+          '<span class="priority-tag priority-' + pTag + '">' + pTag + '</span>' +
+          dueSpan +
+          noteSpan +
+        '</div>' +
+      '</div>' +
+    '</div>';
   }).join('');
 
   container.querySelectorAll('.task-checkbox').forEach(cb => {
     cb.addEventListener('click', (e) => {
       e.stopPropagation();
       const parent = e.target.closest('.task-item');
-      toggleTask(parent.dataset.id);
+      if (parent && parent.dataset.id) {
+        toggleTask(parent.dataset.id);
+      }
     });
   });
 
@@ -807,10 +896,114 @@ async function renderTasks() {
 }
 
 function escapeHtml(str) {
+  if (!str) return '';
   const div = document.createElement('div');
-  div.textContent = str;
+  div.textContent = String(str);
   return div.innerHTML;
 }
+
+async function updateSyncStatus() {
+  try {
+    if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) return;
+    const data = await chrome.storage.local.get(['chronotask_last_synced', 'chronotask_user']);
+    const footerSync = document.getElementById('openFullAppFooter');
+    if (!footerSync) return;
+    if (data.chronotask_last_synced) {
+      const user = data.chronotask_user ? JSON.parse(data.chronotask_user) : null;
+      const d = new Date(data.chronotask_last_synced);
+      const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      footerSync.textContent = '✓ Synced ' + timeStr + ' ↗';
+      footerSync.title = (user && user.email ? 'Connected: ' + user.email + ' · ' : '') + 'Synced with Vercel Web App at ' + timeStr;
+    } else {
+      footerSync.textContent = 'Sync Google Tasks ↗';
+    }
+  } catch (e) {}
+}
+`;
+
+  const contentJs = `// Chronotask Extension Sync Bridge v1.2.0
+// Synchronizes tasks bidirectionally between Vercel Web App and chrome.storage.local
+
+(function() {
+  console.log('[Chronotask Bridge] Active on ' + window.location.origin);
+
+  // Send extension's stored tasks to web app so new tasks created in popup are synced
+  function sendExtensionStateToWeb() {
+    try {
+      chrome.storage.local.get(['chronotask_tasks_v1', 'chronotask_lists_v1', 'chronotask_last_synced'], (res) => {
+        if (chrome.runtime.lastError) return;
+        const tasks = res.chronotask_tasks_v1 ? JSON.parse(res.chronotask_tasks_v1) : [];
+        const lists = res.chronotask_lists_v1 ? JSON.parse(res.chronotask_lists_v1) : [];
+        window.postMessage({
+          type: 'CHRONOTASK_SYNC_FROM_EXTENSION',
+          tasks,
+          lists,
+          lastSynced: res.chronotask_last_synced || null
+        }, '*');
+      });
+    } catch (e) {
+      console.warn('[Chronotask Bridge] Read storage error:', e);
+    }
+  }
+
+  // Broadcast extension state on document ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', sendExtensionStateToWeb);
+  } else {
+    sendExtensionStateToWeb();
+  }
+
+  // Also ask web app for current state
+  window.postMessage({ type: 'CHRONOTASK_PING_FOR_STATE' }, '*');
+
+  // Listen for messages from web app (App.tsx)
+  window.addEventListener('message', (event) => {
+    if (event.source !== window || !event.data) return;
+
+    if (event.data.type === 'CHRONOTASK_SYNC_TO_EXTENSION') {
+      const { tasks, lists, accessToken, user, lastSynced } = event.data;
+      const updateData = {};
+      if (Array.isArray(tasks)) {
+        updateData['chronotask_tasks_v1'] = JSON.stringify(tasks);
+      }
+      if (Array.isArray(lists)) {
+        updateData['chronotask_lists_v1'] = JSON.stringify(lists);
+      }
+      if (accessToken) {
+        updateData['chronotask_access_token'] = accessToken;
+      }
+      if (user) {
+        updateData['chronotask_user'] = JSON.stringify(user);
+      }
+      if (lastSynced) {
+        updateData['chronotask_last_synced'] = lastSynced;
+      }
+
+      chrome.storage.local.set(updateData, () => {
+        try {
+          chrome.runtime.sendMessage({ type: 'SYNC_COMPLETED', count: tasks ? tasks.length : 0 }).catch(() => {});
+        } catch (_) {}
+      });
+    }
+
+    if (event.data.type === 'CHRONOTASK_REQUEST_EXTENSION_SYNC') {
+      sendExtensionStateToWeb();
+    }
+  });
+
+  // Watch for changes made within extension popup/sidepanel while web app is open
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.chronotask_tasks_v1) {
+      try {
+        const updatedTasks = changes.chronotask_tasks_v1.newValue ? JSON.parse(changes.chronotask_tasks_v1.newValue) : [];
+        window.postMessage({
+          type: 'CHRONOTASK_SYNC_FROM_EXTENSION',
+          tasks: updatedTasks
+        }, '*');
+      } catch (e) {}
+    }
+  });
+})();
 `;
 
 
@@ -828,39 +1021,94 @@ function escapeHtml(str) {
 <body>
   <header class="header">
     <div class="logo">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5">
         <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
       </svg>
-      <span>Chronotask Side Panel</span>
+      <span>Chronotask <small style="font-size:10px; color:#2563eb; font-family:monospace;">Side Panel</small></span>
     </div>
     <div class="actions">
-      <button id="openFullApp" title="Open Full App">
+      <button id="openFullApp" title="Open Full Dashboard">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
           <polyline points="15 3 21 3 21 9"></polyline>
-          <polyline points="9 21 3 21 3 15"></polyline>
-          <line x1="21" y1="3" x2="14" y2="10"></line>
-          <line x1="3" y1="21" x2="10" y2="14"></line>
+          <line x1="10" y1="14" x2="21" y2="3"></line>
         </svg>
       </button>
     </div>
   </header>
 
   <section class="quick-add">
-    <input type="text" id="quickTaskInput" placeholder="Quick capture task...">
+    <input type="text" id="quickTaskInput" placeholder="Add task... (Press Enter)" autofocus>
+    <div class="quick-add-bar">
+      <select id="quickFolderSelect" class="mini-select">
+        <option value="default_my_tasks">📁 General</option>
+        <option value="default_work">📁 Work & Projects</option>
+        <option value="default_personal">📁 Personal</option>
+        <option value="default_urgent">📁 Urgent & Critical</option>
+      </select>
+      <select id="quickPrioritySelect" class="mini-select">
+        <option value="urgent">Urgent</option>
+        <option value="high">High</option>
+        <option value="medium" selected>Medium</option>
+        <option value="low">Low</option>
+      </select>
+    </div>
   </section>
 
-  <div class="filter-tabs">
-    <button class="tab active" data-filter="today">Today</button>
-    <button class="tab" data-filter="all">All</button>
-    <button class="tab" data-filter="upcoming">Upcoming</button>
+  <div class="filter-controls">
+    <div class="filter-tabs">
+      <button class="tab active" data-filter="today">Today</button>
+      <button class="tab" data-filter="all">All</button>
+      <button class="tab" data-filter="upcoming">Upcoming</button>
+    </div>
+    <button id="sortToggleBtn" class="sort-btn" title="Toggle Priority High to Low">
+      ↓ Priority
+    </button>
   </div>
 
   <main id="taskList" class="task-list">
   </main>
 
+  <!-- Inline Task Detail & Edit Drawer -->
+  <div id="detailDrawer" class="detail-drawer hidden">
+    <div class="detail-header">
+      <span class="detail-title-label">Task Details</span>
+      <button id="closeDetailBtn" class="icon-btn">✕</button>
+    </div>
+    <div class="detail-body">
+      <label class="form-label">Task Title</label>
+      <input type="text" id="editTaskTitle" class="form-input">
+
+      <label class="form-label">Priority (High to Low)</label>
+      <div class="priority-chips">
+        <button type="button" class="chip" data-p="urgent">Urgent</button>
+        <button type="button" class="chip" data-p="high">High</button>
+        <button type="button" class="chip" data-p="medium">Medium</button>
+        <button type="button" class="chip" data-p="low">Low</button>
+      </div>
+
+      <label class="form-label">Folder / Type</label>
+      <select id="editTaskFolder" class="form-input">
+        <option value="default_my_tasks">📁 General</option>
+        <option value="default_work">📁 Work & Projects</option>
+        <option value="default_personal">📁 Personal</option>
+        <option value="default_urgent">📁 Urgent & Critical</option>
+      </select>
+
+      <label class="form-label">Due Date</label>
+      <input type="date" id="editTaskDue" class="form-input">
+
+      <label class="form-label">Notes</label>
+      <textarea id="editTaskNotes" rows="3" class="form-input" placeholder="Add notes..."></textarea>
+    </div>
+    <div class="detail-footer">
+      <button id="deleteTaskBtn" class="btn-delete">Delete</button>
+      <button id="saveDetailBtn" class="btn-save">Save Changes</button>
+    </div>
+  </div>
+
   <footer class="footer">
-    <button id="openFullAppFooter" class="btn-sync" title="Sync with Google Tasks & Calendar">Sync Google Tasks ↗</button>
-    <span id="syncIndicator">Offline & Synced</span>
+    <button id="openFullAppFooter" class="btn-sync" title="Sync with Google Tasks & Calendar via Web Dashboard">Sync Google Tasks ↗</button>
   </footer>
 
   <script src="popup.js"></script>
@@ -879,6 +1127,7 @@ Thank you for downloading Chronotask! This extension gives you instant quick-cap
    Structure:
    - \`manifest.json\`
    - \`background.js\`
+   - \`content.js\` (Real-Time Bidirectional Sync Bridge with https://task-manager-with-google.vercel.app)
    - \`popup.html\`
    - \`popup.css\`
    - \`popup.js\`
@@ -916,6 +1165,12 @@ Thank you for downloading Chronotask! This extension gives you instant quick-cap
       path: 'background.js',
       type: 'text/javascript',
       content: backgroundJs,
+    },
+    {
+      name: 'content.js',
+      path: 'content.js',
+      type: 'text/javascript',
+      content: contentJs,
     },
     {
       name: 'popup.html',
@@ -986,7 +1241,7 @@ export const exportExtensionAsZip = async (clientId?: string): Promise<void> => 
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'chronotask-extension-v1.1.0.zip';
+  a.download = 'chronotask-extension-v1.2.0.zip';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

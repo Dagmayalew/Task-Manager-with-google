@@ -38,6 +38,14 @@ export const ExtensionExportModal: React.FC<ExtensionExportModalProps> = ({
 
   const storeFields = [
     {
+      id: 'host_permission_justification',
+      title: 'Host Permission Justification (https://task-manager-with-google.vercel.app/*)',
+      location: 'Privacy practices tab → Host permissions justification',
+      requiredFor: 'A justification for host permission use is required',
+      value: 'Required solely to communicate with the user\'s official Chronotask web application dashboard at https://task-manager-with-google.vercel.app. The content script synchronizes the user\'s task lists and Google Tasks authorization status between the web app and the extension\'s local storage in real time. No data is accessed, collected, or transmitted on any other website.',
+      instruction: 'Paste into the justification field under Host permissions on the Privacy practices tab.'
+    },
+    {
       id: 'privacy_policy',
       title: 'Privacy Policy URL (Verified Public HTTPS Link)',
       location: 'Privacy practices tab → Privacy policy link',
@@ -55,11 +63,11 @@ export const ExtensionExportModal: React.FC<ExtensionExportModalProps> = ({
     },
     {
       id: 'version_info',
-      title: 'Package Version 1.1.0 (Live Compatible Update)',
+      title: 'Package Version 1.2.0 (Live Compatible Update with Sync Bridge)',
       location: 'Package tab → Upload New Package',
-      requiredFor: 'Version 1.1.0 Release Update',
-      value: 'chronotask-extension-v1.1.0.zip',
-      instruction: 'Upload the v1.1.0 ZIP file. 100% backwards-compatible with version 1 data. Adds folders by type, priority high-to-low sorting, and click-to-edit task detail page.'
+      requiredFor: 'Version 1.2.0 Release Update',
+      value: 'chronotask-extension-v1.2.0.zip',
+      instruction: 'Upload the v1.2.0 ZIP file. 100% backwards-compatible with version 1 data. Adds Content Script Sync Bridge (content.js) so tasks and Google authentication sync automatically with your Vercel deployment (https://task-manager-with-google.vercel.app).'
     },
     {
       id: 'single_purpose',
@@ -376,26 +384,26 @@ Developer Contact: dagmayalew489@gmail.com`;
 
               <div className="border border-neutral-200 dark:border-neutral-800 rounded-md p-4 space-y-3 bg-neutral-50/40 dark:bg-neutral-950/40">
                 <h4 className="font-semibold text-xs uppercase tracking-wider font-mono text-neutral-800 dark:text-neutral-200">
-                  How Chronotask Google Sync Works:
+                  How Vercel Web App & Extension Real-Time Sync Works (v1.2.0):
                 </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="p-3 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded">
                     <span className="font-mono text-[10px] text-blue-600 font-bold block mb-1">STEP 1</span>
-                    <p className="font-medium text-neutral-900 dark:text-neutral-100 mb-1">Open Web Dashboard</p>
-                    <p className="text-neutral-500 text-[11px]">Click "Open Full Dashboard" (<ExternalLink className="w-2.5 h-2.5 inline" />) in the extension popup header to open the web app.</p>
+                    <p className="font-medium text-neutral-900 dark:text-neutral-100 mb-1">Open Vercel App</p>
+                    <p className="text-neutral-500 text-[11px]">Click "Open Full Dashboard" (<ExternalLink className="w-2.5 h-2.5 inline" />) in popup to open <code className="font-mono text-[10px]">task-manager-with-google.vercel.app</code>.</p>
                   </div>
 
                   <div className="p-3 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded">
                     <span className="font-mono text-[10px] text-blue-600 font-bold block mb-1">STEP 2</span>
-                    <p className="font-medium text-neutral-900 dark:text-neutral-100 mb-1">Authenticate with Google</p>
-                    <p className="text-neutral-500 text-[11px]">Click "Sign In with Google" in the top navbar. Grant access to Google Tasks and Calendar.</p>
+                    <p className="font-medium text-neutral-900 dark:text-neutral-100 mb-1">Sign In with Google</p>
+                    <p className="text-neutral-500 text-[11px]">Click "Sign In with Google" on Vercel. Google Tasks and Calendar events are fetched live.</p>
                   </div>
 
                   <div className="p-3 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded">
                     <span className="font-mono text-[10px] text-blue-600 font-bold block mb-1">STEP 3</span>
-                    <p className="font-medium text-neutral-900 dark:text-neutral-100 mb-1">Offline & Extension Ready</p>
-                    <p className="text-neutral-500 text-[11px]">Tasks synchronize bidirectionally through local storage and the cloud queue across all views.</p>
+                    <p className="font-medium text-neutral-900 dark:text-neutral-100 mb-1">Automatic Content Bridge</p>
+                    <p className="text-neutral-500 text-[11px]"><code className="font-mono text-[10px]">content.js</code> automatically bridges tasks and auth into extension <code className="font-mono text-[10px]">chrome.storage.local</code> in real time!</p>
                   </div>
                 </div>
               </div>
