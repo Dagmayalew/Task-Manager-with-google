@@ -194,9 +194,14 @@ chrome.runtime.onMessage.addListener((message) => {
       <button class="tab" data-filter="all">All</button>
       <button class="tab" data-filter="upcoming">Upcoming</button>
     </div>
-    <button id="sortToggleBtn" class="sort-btn" title="Toggle Priority High to Low">
-      ↓ Priority
-    </button>
+    <div class="filter-right">
+      <select id="folderFilterSelect" class="mini-select" title="Filter by folder">
+        <option value="all">📁 All Folders</option>
+      </select>
+      <button id="sortToggleBtn" class="sort-btn" title="Toggle Priority High to Low">
+        ↓ Priority
+      </button>
+    </div>
   </div>
 
   <main id="taskList" class="task-list">
@@ -321,12 +326,20 @@ body {
   color: #404040;
   outline: none;
   cursor: pointer;
+  max-width: 120px;
+  text-overflow: ellipsis;
 }
 .filter-controls {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 8px 14px 4px 14px;
+  gap: 8px;
+}
+.filter-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 .filter-tabs {
   display: flex;
@@ -575,6 +588,7 @@ body {
 
   const popupJs = `// Chronotask Extension Popup Logic v1.2.0
 let currentFilter = 'today';
+let selectedFolderId = 'all';
 let prioritySortHighToLow = true;
 let editingTaskId = null;
 
@@ -585,9 +599,17 @@ const PRIORITY_WEIGHT = {
   low: 1,
 };
 
+const DEFAULT_FOLDERS = [
+  { id: 'default_my_tasks', title: 'General', color: '#2563eb' },
+  { id: 'default_work', title: 'Work & Projects', color: '#059669' },
+  { id: 'default_personal', title: 'Personal', color: '#7c3aed' },
+  { id: 'default_urgent', title: 'Urgent & Critical', color: '#e11d48' },
+];
+
 document.addEventListener('DOMContentLoaded', async () => {
-  renderTasks();
-  updateSyncStatus();
+  await renderFolderDropdowns();
+  await renderTasks();
+  await updateSyncStatus();
 
   // On popup open, immediately trigger a sync check with any open Chronotask tab
   if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
@@ -609,7 +631,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area === 'local') {
-        if (changes.chronotask_tasks_v1) {
+        if (changes.chronotask_lists_v1) {
+          renderFolderDropdowns();
+        }
+        if (changes.chronotask_tasks_v1 || changes.chronotask_lists_v1) {
           renderTasks();
         }
         if (changes.chronotask_last_synced || changes.chronotask_user) {
@@ -633,6 +658,45 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.target.value = '';
         renderTasks();
       }
+    });
+  }
+
+  // Folder creation on quickFolderSelect
+  const quickFolderEl = document.getElementById('quickFolderSelect');
+  if (quickFolderEl) {
+    quickFolderEl.addEventListener('change', async (e) => {
+      if (e.target.value === '__NEW_FOLDER__') {
+        const createdId = await promptCreateFolder();
+        if (createdId) {
+          quickFolderEl.value = createdId;
+        } else {
+          quickFolderEl.value = 'default_my_tasks';
+        }
+      }
+    });
+  }
+
+  // Folder creation on editTaskFolder
+  const editFolderEl = document.getElementById('editTaskFolder');
+  if (editFolderEl) {
+    editFolderEl.addEventListener('change', async (e) => {
+      if (e.target.value === '__NEW_FOLDER__') {
+        const createdId = await promptCreateFolder();
+        if (createdId) {
+          editFolderEl.value = createdId;
+        } else {
+          editFolderEl.value = 'default_my_tasks';
+        }
+      }
+    });
+  }
+
+  // Folder filter toolbar
+  const folderFilterEl = document.getElementById('folderFilterSelect');
+  if (folderFilterEl) {
+    folderFilterEl.addEventListener('change', (e) => {
+      selectedFolderId = e.target.value;
+      renderTasks();
     });
   }
 
@@ -685,6 +749,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       setTimeout(async () => {
+        await renderFolderDropdowns();
         await renderTasks();
         await updateSyncStatus();
       }, 500);
@@ -720,6 +785,86 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 });
+
+async function getStoredLists() {
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    const result = await chrome.storage.local.get(['chronotask_lists_v1']);
+    if (result.chronotask_lists_v1) {
+      try {
+        const parsed = JSON.parse(result.chronotask_lists_v1);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const map = new Map();
+          DEFAULT_FOLDERS.forEach(df => map.set(df.id, df));
+          parsed.forEach(p => map.set(p.id, { ...map.get(p.id), ...p }));
+          return Array.from(map.values());
+        }
+      } catch (e) {}
+    }
+  }
+  return DEFAULT_FOLDERS;
+}
+
+async function saveStoredLists(lists) {
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    await chrome.storage.local.set({ 'chronotask_lists_v1': JSON.stringify(lists) });
+  }
+}
+
+async function promptCreateFolder() {
+  const name = window.prompt('Enter new folder name:');
+  if (!name || !name.trim()) return null;
+  const lists = await getStoredLists();
+  const newFolder = {
+    id: 'folder_' + Date.now(),
+    title: name.trim(),
+    color: '#2563eb'
+  };
+  lists.push(newFolder);
+  await saveStoredLists(lists);
+  await renderFolderDropdowns();
+  return newFolder.id;
+}
+
+async function renderFolderDropdowns() {
+  const lists = await getStoredLists();
+
+  // 1. Quick folder select
+  const quickSelect = document.getElementById('quickFolderSelect');
+  if (quickSelect) {
+    const currentVal = quickSelect.value || 'default_my_tasks';
+    quickSelect.innerHTML = lists.map(l => '<option value="' + l.id + '">📁 ' + escapeHtml(l.title) + '</option>').join('') +
+      '<option value="__NEW_FOLDER__">➕ New Folder...</option>';
+    if (lists.some(l => l.id === currentVal)) {
+      quickSelect.value = currentVal;
+    } else {
+      quickSelect.value = lists[0] ? lists[0].id : 'default_my_tasks';
+    }
+  }
+
+  // 2. Edit folder select in task drawer
+  const editSelect = document.getElementById('editTaskFolder');
+  if (editSelect) {
+    const currentVal = editSelect.value;
+    editSelect.innerHTML = lists.map(l => '<option value="' + l.id + '">📁 ' + escapeHtml(l.title) + '</option>').join('') +
+      '<option value="__NEW_FOLDER__">➕ New Folder...</option>';
+    if (currentVal && lists.some(l => l.id === currentVal)) {
+      editSelect.value = currentVal;
+    }
+  }
+
+  // 3. Filter folder select in toolbar
+  const filterSelect = document.getElementById('folderFilterSelect');
+  if (filterSelect) {
+    filterSelect.innerHTML = '<option value="all">📁 All Folders</option>' +
+      lists.map(l => '<option value="' + l.id + '">📁 ' + escapeHtml(l.title) + '</option>').join('');
+    if (selectedFolderId === 'all' || lists.some(l => l.id === selectedFolderId)) {
+      filterSelect.value = selectedFolderId;
+    } else {
+      selectedFolderId = 'all';
+      filterSelect.value = 'all';
+    }
+  }
+}
 
 async function getStoredTasks() {
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
@@ -847,7 +992,10 @@ async function renderTasks() {
   const container = document.getElementById('taskList');
   if (!container) return;
 
-  const tasks = await getStoredTasks();
+  const [tasks, lists] = await Promise.all([getStoredTasks(), getStoredLists()]);
+  const listMap = new Map();
+  lists.forEach(l => listMap.set(l.id, l));
+
   const today = new Date().toISOString().split('T')[0];
 
   let filtered = tasks;
@@ -855,6 +1003,11 @@ async function renderTasks() {
     filtered = tasks.filter(t => t.due === today || (!t.completed && (!t.due || t.due <= today)));
   } else if (currentFilter === 'upcoming') {
     filtered = tasks.filter(t => t.due && t.due > today && !t.completed);
+  }
+
+  // Filter by selected folder if not 'all'
+  if (selectedFolderId !== 'all') {
+    filtered = filtered.filter(t => (t.folderId || t.listId || 'default_my_tasks') === selectedFolderId);
   }
 
   // Priority Sorting (High to Low)
@@ -874,15 +1027,18 @@ async function renderTasks() {
     return;
   }
 
-  const FOLDER_MAP = {
-    default_my_tasks: { label: 'General', cls: '' },
-    default_work: { label: 'Work', cls: 'folder-work' },
-    default_personal: { label: 'Personal', cls: '' },
-    default_urgent: { label: 'Urgent', cls: 'folder-urgent' },
-  };
-
   container.innerHTML = filtered.map(t => {
-    const f = FOLDER_MAP[t.folderId] || { label: 'General', cls: '' };
+    const fId = t.folderId || t.listId || 'default_my_tasks';
+    const folder = listMap.get(fId);
+    const folderTitle = folder ? folder.title : 'General';
+    let folderStyle = '';
+    let extraCls = '';
+    if (fId === 'default_urgent') extraCls = 'folder-urgent';
+    else if (fId === 'default_work') extraCls = 'folder-work';
+    else if (folder && folder.color) {
+      folderStyle = 'border-color: ' + folder.color + '40; color: ' + folder.color + ';';
+    }
+
     const safeTitle = escapeHtml(t.title || '');
     const isCompleted = Boolean(t.completed);
     const pTag = t.priority || 'medium';
@@ -894,7 +1050,7 @@ async function renderTasks() {
       '<input type="checkbox" class="task-checkbox" ' + (isCompleted ? 'checked' : '') + '>' +
       '<div class="task-content">' +
         '<div class="task-title">' +
-          '<span class="folder-badge ' + f.cls + '">📁 ' + f.label + '</span> ' +
+          '<span class="folder-badge ' + extraCls + '" style="' + folderStyle + '">📁 ' + escapeHtml(folderTitle) + '</span> ' +
           safeTitle +
         '</div>' +
         '<div class="task-meta">' +
@@ -956,12 +1112,12 @@ async function updateSyncStatus() {
 `;
 
   const contentJs = `// Chronotask Extension Sync Bridge v1.2.0
-// Synchronizes tasks bidirectionally between Chronotask Web App and chrome.storage.local
+// Synchronizes tasks and folders bidirectionally between Chronotask Web App and chrome.storage.local
 
 (function() {
   console.log('[Chronotask Bridge] Initialized on ' + window.location.href);
 
-  // Send extension's stored tasks to web app so new tasks created in popup are synced
+  // Send extension's stored tasks and folders to web app
   function sendExtensionStateToWeb() {
     try {
       chrome.storage.local.get(['chronotask_tasks_v1', 'chronotask_lists_v1', 'chronotask_last_synced'], (res) => {
@@ -1046,15 +1202,8 @@ async function updateSyncStatus() {
 
   // Watch for changes made within extension popup/sidepanel while web app is open
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes.chronotask_tasks_v1) {
-      try {
-        const updatedTasks = changes.chronotask_tasks_v1.newValue ? JSON.parse(changes.chronotask_tasks_v1.newValue) : [];
-        window.postMessage({
-          type: 'CHRONOTASK_SYNC_FROM_EXTENSION',
-          source: 'chronotask-extension',
-          tasks: updatedTasks
-        }, '*');
-      } catch (e) {}
+    if (area === 'local' && (changes.chronotask_tasks_v1 || changes.chronotask_lists_v1)) {
+      sendExtensionStateToWeb();
     }
   });
 
@@ -1126,9 +1275,14 @@ async function updateSyncStatus() {
       <button class="tab" data-filter="all">All</button>
       <button class="tab" data-filter="upcoming">Upcoming</button>
     </div>
-    <button id="sortToggleBtn" class="sort-btn" title="Toggle Priority High to Low">
-      ↓ Priority
-    </button>
+    <div class="filter-right">
+      <select id="folderFilterSelect" class="mini-select" title="Filter by folder">
+        <option value="all">📁 All Folders</option>
+      </select>
+      <button id="sortToggleBtn" class="sort-btn" title="Toggle Priority High to Low">
+        ↓ Priority
+      </button>
+    </div>
   </div>
 
   <main id="taskList" class="task-list">

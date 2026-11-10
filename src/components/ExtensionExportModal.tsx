@@ -67,7 +67,7 @@ export const ExtensionExportModal: React.FC<ExtensionExportModalProps> = ({
       location: 'Package tab → Upload New Package',
       requiredFor: 'Version 1.2.0 Release Update',
       value: 'chronotask-extension-v1.2.0.zip',
-      instruction: 'Upload the v1.2.0 ZIP file. 100% backwards-compatible with version 1 data. Adds Content Script Sync Bridge (content.js) so tasks and Google authentication sync automatically with your Vercel deployment (https://task-manager-with-google.vercel.app).'
+      instruction: 'Upload the v1.2.0 ZIP file. 100% backwards-compatible with version 1 data. Adds Content Script Sync Bridge (content.js) so tasks, folders/lists, and Google authentication sync automatically with your Vercel deployment (https://task-manager-with-google.vercel.app).'
     },
     {
       id: 'single_purpose',

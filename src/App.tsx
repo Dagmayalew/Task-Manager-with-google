@@ -184,8 +184,33 @@ export default function App() {
       if (!event.data || typeof event.data !== 'object') return;
       if (event.data.source === 'chronotask-web-app') return; // Ignore own messages
 
-      // When extension provides its stored tasks
+      // When extension provides its stored tasks and folders/lists
       if (event.data.type === 'CHRONOTASK_SYNC_FROM_EXTENSION') {
+        // 1. Merge any new/updated lists/folders from extension
+        const extLists = event.data.lists as TaskList[];
+        if (Array.isArray(extLists) && extLists.length > 0) {
+          setLists(prev => {
+            const listMap = new Map<string, TaskList>();
+            prev.forEach(l => listMap.set(l.id, l));
+
+            let listsChanged = false;
+            extLists.forEach(extList => {
+              if (!listMap.has(extList.id)) {
+                listMap.set(extList.id, extList);
+                listsChanged = true;
+                if (accessToken) {
+                  googleTasksService.createTaskList(accessToken, extList.title).then(created => {
+                    setLists(curr => curr.map(l => l.id === extList.id ? { ...l, googleListId: created.id } : l));
+                  }).catch(() => {});
+                }
+              }
+            });
+
+            return listsChanged ? Array.from(listMap.values()) : prev;
+          });
+        }
+
+        // 2. Merge tasks
         const extTasks = event.data.tasks as TaskItemType[];
         if (Array.isArray(extTasks) && extTasks.length > 0) {
           setTasks(prev => {
