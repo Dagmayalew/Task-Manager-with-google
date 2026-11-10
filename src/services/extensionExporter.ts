@@ -222,8 +222,8 @@ chrome.storage.onChanged.addListener((changes, area) => {
   </div>
 
   <footer class="footer">
-    <span id="syncIndicator">Offline Ready</span>
-    <button id="openSidePanelBtn">Dock to Side Panel</button>
+    <button id="openFullAppFooter" class="btn-sync" title="Sync with Google Tasks & Calendar via Web Dashboard">Sync Google Tasks ↗</button>
+    <button id="openSidePanelBtn">Side Panel</button>
   </footer>
 
   <script src="popup.js"></script>
@@ -424,6 +424,33 @@ body {
   border-color: #171717;
   color: #171717;
 }
+.btn-sync {
+  color: #2563eb !important;
+  font-weight: 500;
+}
+.folder-badge {
+  font-size: 9px;
+  font-family: monospace;
+  padding: 1px 4px;
+  border-radius: 3px;
+  border: 1px solid #e5e5e5;
+  background: #f5f5f4;
+  color: #525252;
+  margin-right: 4px;
+  display: inline-block;
+}
+.folder-badge.folder-urgent {
+  background: #fef2f2;
+  border-color: #fecdd3;
+  color: #e11d48;
+  font-weight: 600;
+}
+.folder-badge.folder-work {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #2563eb;
+  font-weight: 600;
+}
 
 /* Detail Drawer */
 .detail-drawer {
@@ -570,8 +597,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.getElementById('openFullApp').addEventListener('click', () => {
-    chrome.tabs.create({ url: 'https://ais-pre-onshekxu4tnyswwyz7v5qf-225900507391.europe-west2.run.app' });
+    chrome.tabs.create({ url: 'https://task-manager-with-google.vercel.app' });
   });
+
+  const footerSync = document.getElementById('openFullAppFooter');
+  if (footerSync) {
+    footerSync.addEventListener('click', () => {
+      chrome.tabs.create({ url: 'https://task-manager-with-google.vercel.app' });
+    });
+  }
 
   const sidePanelBtn = document.getElementById('openSidePanelBtn');
   if (sidePanelBtn) {
@@ -724,11 +758,23 @@ async function renderTasks() {
     return;
   }
 
-  container.innerHTML = filtered.map(t => \`
+  const FOLDER_MAP = {
+    default_my_tasks: { label: 'General', cls: '' },
+    default_work: { label: 'Work', cls: 'folder-work' },
+    default_personal: { label: 'Personal', cls: '' },
+    default_urgent: { label: 'Urgent', cls: 'folder-urgent' },
+  };
+
+  container.innerHTML = filtered.map(t => {
+    const f = FOLDER_MAP[t.folderId] || { label: 'General', cls: '' };
+    return \`
     <div class="task-item \${t.completed ? 'completed' : ''}" data-id="\${t.id}">
       <input type="checkbox" class="task-checkbox" \${t.completed ? 'checked' : ''}>
       <div class="task-content">
-        <div class="task-title">\${escapeHtml(t.title)}</div>
+        <div class="task-title">
+          <span class="folder-badge \${f.cls}">📁 \${f.label}</span>
+          \${escapeHtml(t.title)}
+        </div>
         <div class="task-meta">
           <span class="priority-tag priority-\${t.priority || 'medium'}">\${t.priority || 'medium'}</span>
           \${t.due ? \`<span>· \${t.due === today ? 'Today' : t.due}</span>\` : ''}
@@ -736,7 +782,8 @@ async function renderTasks() {
         </div>
       </div>
     </div>
-  \`).join('');
+  \`;
+  }).join('');
 
   container.querySelectorAll('.task-checkbox').forEach(cb => {
     cb.addEventListener('click', (e) => {
@@ -812,6 +859,7 @@ function escapeHtml(str) {
   </main>
 
   <footer class="footer">
+    <button id="openFullAppFooter" class="btn-sync" title="Sync with Google Tasks & Calendar">Sync Google Tasks ↗</button>
     <span id="syncIndicator">Offline & Synced</span>
   </footer>
 

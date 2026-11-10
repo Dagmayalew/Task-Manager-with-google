@@ -142,14 +142,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
         </button>
 
-        {/* Extension Package Modal Button - Minimalist border */}
+        {/* Extension Package Modal Button - Prominent Download CTA */}
         <button
           onClick={onOpenExtensionModal}
-          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 transition"
-          title="Download Chrome Extension package"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-2xs cursor-pointer"
+          title="Download Chrome Extension ZIP package"
         >
           <Puzzle className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Extension</span>
+          <span>Download Extension ZIP</span>
         </button>
 
         {/* Google Authentication */}

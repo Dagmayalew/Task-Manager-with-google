@@ -32,12 +32,27 @@ export const ExtensionExportModal: React.FC<ExtensionExportModalProps> = ({
   const [isZipping, setIsZipping] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
 
-  // Dynamic public HTTPS URL for the privacy policy
-  const hostedPrivacyUrl = typeof window !== 'undefined' && window.location.origin.startsWith('https://')
-    ? `${window.location.origin}/privacy.html`
-    : 'https://ais-pre-onshekxu4tnyswwyz7v5qf-225900507391.europe-west2.run.app/privacy.html';
+  // Public production HTTPS URL on Vercel
+  const vercelAppUrl = 'https://task-manager-with-google.vercel.app';
+  const hostedPrivacyUrl = `${vercelAppUrl}/privacy.html`;
 
   const storeFields = [
+    {
+      id: 'privacy_policy',
+      title: 'Privacy Policy URL (Verified Public HTTPS Link)',
+      location: 'Privacy practices tab → Privacy policy link',
+      requiredFor: 'Privacy policy link is not valid or not reachable',
+      value: hostedPrivacyUrl,
+      instruction: 'Paste into the Privacy policy field on the Privacy practices tab. It is hosted live on your Vercel deployment.'
+    },
+    {
+      id: 'store_website',
+      title: 'Official Web App URL',
+      location: 'Store listing tab → Homepage Website',
+      requiredFor: 'Web App Hub & Google OAuth Redirect',
+      value: vercelAppUrl,
+      instruction: 'Paste into the Homepage / Website field on your Chrome Web Store listing.'
+    },
     {
       id: 'version_info',
       title: 'Package Version 1.1.0 (Live Compatible Update)',
