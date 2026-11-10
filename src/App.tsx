@@ -161,10 +161,28 @@ export default function App() {
     broadcastToExtension();
   }, [tasks, lists, accessToken, user]);
 
+  // Periodic automatic sync broadcast every 3 seconds so extension is always updated in real time
+  useEffect(() => {
+    const interval = setInterval(() => {
+      window.postMessage({
+        type: 'CHRONOTASK_SYNC_TO_EXTENSION',
+        source: 'chronotask-web-app',
+        tasks: storageService.loadTasks(),
+        lists: storageService.loadLists(),
+        accessToken,
+        user: user ? { email: user.email, displayName: user.displayName } : null,
+        lastSynced: storageService.getLastSynced() || new Date().toISOString(),
+      }, '*');
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [accessToken, user]);
+
   useEffect(() => {
     // 2. Listen for messages from extension content script
     const handleExtensionSyncMessage = (event: MessageEvent) => {
-      if (!event.data || event.source !== window) return;
+      if (!event.data || typeof event.data !== 'object') return;
+      if (event.data.source === 'chronotask-web-app') return; // Ignore own messages
 
       // When extension provides its stored tasks
       if (event.data.type === 'CHRONOTASK_SYNC_FROM_EXTENSION') {
@@ -202,7 +220,7 @@ export default function App() {
         }
       }
 
-      // Web app ping request from content script
+      // Web app ping request from content script or popup
       if (event.data.type === 'CHRONOTASK_PING_FOR_STATE') {
         window.postMessage({
           type: 'CHRONOTASK_SYNC_TO_EXTENSION',
@@ -371,12 +389,54 @@ export default function App() {
     setAccessToken(null);
   };
 
-  // Manual Sync
-  const handleSyncNow = () => {
-    if (accessToken) {
-      processSyncQueueAndFetch(accessToken);
+  // Manual & Auto Sync - Always triggers bidirectional sync with extension & Google Tasks
+  const handleSyncNow = async () => {
+    setIsSyncing(true);
+
+    // 1. Immediately broadcast state to extension content script
+    window.postMessage({
+      type: 'CHRONOTASK_SYNC_TO_EXTENSION',
+      source: 'chronotask-web-app',
+      tasks,
+      lists,
+      accessToken,
+      user: user ? { email: user.email, displayName: user.displayName } : null,
+      lastSynced: new Date().toISOString(),
+    }, '*');
+
+    // 2. Sync with Google Tasks API
+    try {
+      if (accessToken) {
+        await processSyncQueueAndFetch(accessToken);
+      } else if (user) {
+        // Re-authenticate to get fresh Google OAuth access token
+        const result = await googleSignIn();
+        if (result?.accessToken) {
+          setAccessToken(result.accessToken);
+          await processSyncQueueAndFetch(result.accessToken);
+        }
+      } else {
+        // Prompt login
+        await handleLogin();
+      }
+    } catch (err) {
+      console.warn('Sync error:', err);
+    } finally {
+      const nowIso = new Date().toISOString();
+      storageService.setLastSynced(nowIso);
+      setLastSynced(nowIso);
+      setIsSyncing(false);
     }
   };
+
+  // Periodic Google Tasks background auto-sync every 30 seconds when online
+  useEffect(() => {
+    if (!accessToken || !isOnline) return;
+    const interval = setInterval(() => {
+      processSyncQueueAndFetch(accessToken);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [accessToken, isOnline, processSyncQueueAndFetch]);
 
   // Set Display Mode
   const handleSetDisplayMode = (mode: ExtensionDisplayMode) => {

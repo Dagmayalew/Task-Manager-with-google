@@ -24,8 +24,10 @@ provider.setCustomParameters({
 
 // Flag to indicate if we are currently in the middle of a sign-in flow
 let isSigningIn = false;
-// Cache the access token strictly in memory per Google Workspace skill requirements
-let cachedAccessToken: string | null = null;
+const TOKEN_KEY = 'chronotask_oauth_access_token';
+
+// Cache the access token in memory with sessionStorage persistence across tab reloads
+let cachedAccessToken: string | null = typeof window !== 'undefined' ? sessionStorage.getItem(TOKEN_KEY) : null;
 
 export const initAuth = (
   onAuthSuccess?: (user: User, token: string | null) => void,
@@ -33,14 +35,15 @@ export const initAuth = (
 ) => {
   return onAuthStateChanged(auth, async (user: User | null) => {
     if (user) {
-      if (cachedAccessToken) {
-        if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
-      } else if (!isSigningIn) {
-        // If user is logged into Firebase but token needs re-fetch, trigger re-auth or return null token
-        if (onAuthSuccess) onAuthSuccess(user, null);
+      if (!cachedAccessToken && typeof window !== 'undefined') {
+        cachedAccessToken = sessionStorage.getItem(TOKEN_KEY);
       }
+      if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
     } else {
       cachedAccessToken = null;
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem(TOKEN_KEY);
+      }
       if (onAuthFailure) onAuthFailure();
     }
   });
@@ -56,6 +59,9 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     }
 
     cachedAccessToken = credential.accessToken;
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(TOKEN_KEY, credential.accessToken);
+    }
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error: any) {
     console.error('Sign in error:', error);
@@ -76,4 +82,7 @@ export const setAccessTokenManually = (token: string | null) => {
 export const logout = async () => {
   await signOut(auth);
   cachedAccessToken = null;
+  if (typeof window !== 'undefined') {
+    sessionStorage.removeItem(TOKEN_KEY);
+  }
 };

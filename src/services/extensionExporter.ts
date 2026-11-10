@@ -56,10 +56,14 @@ export const generateExtensionFiles = (clientId?: string): ExtensionFile[] => {
     content_scripts: [
       {
         matches: [
-          'https://task-manager-with-google.vercel.app/*'
+          'https://task-manager-with-google.vercel.app/*',
+          'https://*.vercel.app/*',
+          'https://*.run.app/*',
+          'http://localhost/*',
+          'http://127.0.0.1/*'
         ],
         js: ['content.js'],
-        run_at: 'document_idle'
+        run_at: 'document_start'
       }
     ],
     action: {
@@ -585,6 +589,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderTasks();
   updateSyncStatus();
 
+  // On popup open, immediately trigger a sync check with any open Chronotask tab
+  if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
+    chrome.tabs.query({}, (tabs) => {
+      const matchTab = tabs.find(t => t.url && (t.url.includes('vercel.app') || t.url.includes('run.app') || t.url.includes('localhost') || t.url.includes('127.0.0.1')));
+      if (matchTab && matchTab.id) {
+        chrome.tabs.sendMessage(matchTab.id, { type: 'TRIGGER_PAGE_SYNC' }, () => {});
+      }
+    });
+  }
+
+  // Periodic automatic sync check while popup is open
+  setInterval(async () => {
+    await renderTasks();
+    await updateSyncStatus();
+  }, 2500);
+
   // Listen for real-time changes synced from Vercel Web App
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
     chrome.storage.onChanged.addListener((changes, area) => {
@@ -648,12 +668,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const footerSync = document.getElementById('openFullAppFooter');
   if (footerSync) {
-    footerSync.addEventListener('click', () => {
-      if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
-        chrome.tabs.create({ url: 'https://task-manager-with-google.vercel.app' });
+    footerSync.addEventListener('click', async () => {
+      footerSync.textContent = 'Syncing...';
+      if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
+        chrome.tabs.query({}, (tabs) => {
+          const matchTab = tabs.find(t => t.url && (t.url.includes('vercel.app') || t.url.includes('run.app') || t.url.includes('localhost') || t.url.includes('127.0.0.1')));
+          if (matchTab && matchTab.id) {
+            chrome.tabs.sendMessage(matchTab.id, { type: 'TRIGGER_PAGE_SYNC' }, () => {});
+            chrome.tabs.update(matchTab.id, { active: true });
+          } else {
+            chrome.tabs.create({ url: 'https://task-manager-with-google.vercel.app' });
+          }
+        });
       } else {
         window.open('https://task-manager-with-google.vercel.app', '_blank');
       }
+
+      setTimeout(async () => {
+        await renderTasks();
+        await updateSyncStatus();
+      }, 500);
     });
   }
 
@@ -922,10 +956,10 @@ async function updateSyncStatus() {
 `;
 
   const contentJs = `// Chronotask Extension Sync Bridge v1.2.0
-// Synchronizes tasks bidirectionally between Vercel Web App and chrome.storage.local
+// Synchronizes tasks bidirectionally between Chronotask Web App and chrome.storage.local
 
 (function() {
-  console.log('[Chronotask Bridge] Active on ' + window.location.origin);
+  console.log('[Chronotask Bridge] Initialized on ' + window.location.href);
 
   // Send extension's stored tasks to web app so new tasks created in popup are synced
   function sendExtensionStateToWeb() {
@@ -936,6 +970,7 @@ async function updateSyncStatus() {
         const lists = res.chronotask_lists_v1 ? JSON.parse(res.chronotask_lists_v1) : [];
         window.postMessage({
           type: 'CHRONOTASK_SYNC_FROM_EXTENSION',
+          source: 'chronotask-extension',
           tasks,
           lists,
           lastSynced: res.chronotask_last_synced || null
@@ -946,19 +981,37 @@ async function updateSyncStatus() {
     }
   }
 
-  // Broadcast extension state on document ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', sendExtensionStateToWeb);
-  } else {
-    sendExtensionStateToWeb();
+  // Request current state from web app
+  function requestPageState() {
+    window.postMessage({
+      type: 'CHRONOTASK_PING_FOR_STATE',
+      source: 'chronotask-extension'
+    }, '*');
   }
 
-  // Also ask web app for current state
-  window.postMessage({ type: 'CHRONOTASK_PING_FOR_STATE' }, '*');
+  // Trigger sync on start and at multiple lifecycle stages
+  sendExtensionStateToWeb();
+  requestPageState();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      sendExtensionStateToWeb();
+      requestPageState();
+    });
+  }
+  window.addEventListener('load', () => {
+    sendExtensionStateToWeb();
+    requestPageState();
+  });
+
+  // Automated continuous periodic sync every 3 seconds while web app is open
+  setInterval(() => {
+    requestPageState();
+  }, 3000);
 
   // Listen for messages from web app (App.tsx)
   window.addEventListener('message', (event) => {
-    if (event.source !== window || !event.data) return;
+    if (!event.data || typeof event.data !== 'object') return;
+    if (event.data.source === 'chronotask-extension') return; // Ignore own messages
 
     if (event.data.type === 'CHRONOTASK_SYNC_TO_EXTENSION') {
       const { tasks, lists, accessToken, user, lastSynced } = event.data;
@@ -998,11 +1051,23 @@ async function updateSyncStatus() {
         const updatedTasks = changes.chronotask_tasks_v1.newValue ? JSON.parse(changes.chronotask_tasks_v1.newValue) : [];
         window.postMessage({
           type: 'CHRONOTASK_SYNC_FROM_EXTENSION',
+          source: 'chronotask-extension',
           tasks: updatedTasks
         }, '*');
       } catch (e) {}
     }
   });
+
+  // Listen for direct sync triggers from extension popup
+  if (chrome.runtime && chrome.runtime.onMessage) {
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+      if (request && request.type === 'TRIGGER_PAGE_SYNC') {
+        sendExtensionStateToWeb();
+        requestPageState();
+        sendResponse({ status: 'ok' });
+      }
+    });
+  }
 })();
 `;
 

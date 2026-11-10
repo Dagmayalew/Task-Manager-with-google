@@ -121,17 +121,20 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </button>
 
-        {/* Sync Now Button */}
-        {user && (
-          <button
-            onClick={onSyncNow}
-            disabled={isSyncing || !isOnline}
-            title="Synchronize Google Tasks & Calendar"
-            className="p-1.5 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 rounded hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50 transition disabled:opacity-40"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-neutral-900 dark:text-neutral-100' : ''}`} />
-          </button>
-        )}
+        {/* Sync Now Button - Always visible & active */}
+        <button
+          onClick={onSyncNow}
+          disabled={isSyncing}
+          title={isSyncing ? 'Syncing tasks with Extension & Google Tasks...' : 'Sync tasks with Chrome Extension & Google Tasks'}
+          className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition cursor-pointer ${
+            isSyncing
+              ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
+              : 'border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 bg-white dark:bg-neutral-900 shadow-2xs'
+          }`}
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-blue-600 dark:text-blue-400' : 'text-neutral-500 dark:text-neutral-400'}`} />
+          <span className="hidden sm:inline font-mono text-[11px]">{isSyncing ? 'Syncing...' : 'Sync'}</span>
+        </button>
 
         {/* Theme Mode Toggle (Sun / Moon) */}
         <button
