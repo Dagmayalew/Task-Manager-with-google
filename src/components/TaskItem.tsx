@@ -1,15 +1,19 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
-import { 
-  Check, 
-  Calendar, 
-  Star, 
-  Trash2, 
-  Edit3, 
-  CalendarPlus, 
-  FileText
+import {
+  Check,
+  Calendar,
+  Star,
+  Trash2,
+  Pencil,
+  CalendarPlus,
+  FileText,
+  Copy,
+  MoreHorizontal,
+  CalendarCheck2,
+  Cloud,
 } from 'lucide-react';
-import { TaskItem as TaskItemType, TaskList, Priority } from '../types';
+import { TaskItem as TaskItemType, TaskList } from '../types';
 
 interface TaskItemProps {
   task: TaskItemType;
@@ -21,6 +25,7 @@ interface TaskItemProps {
   onToggleComplete: (id: string, completed: boolean) => void;
   onToggleStar: (id: string) => void;
   onEdit: (task: TaskItemType) => void;
+  onCopy: (task: TaskItemType) => void;
   onDelete: (id: string, title: string) => void;
   onScheduleToCalendar: (task: TaskItemType) => void;
 }
@@ -35,27 +40,37 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   onToggleComplete,
   onToggleStar,
   onEdit,
+  onCopy,
   onDelete,
   onScheduleToCalendar,
 }) => {
   const [showNotes, setShowNotes] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
-  const list = lists.find(l => l.id === task.listId);
-  const todayStr = new Date().toISOString().split('T')[0];
+  const list = lists.find((l) => l.id === (task.folderId || task.listId));
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMenuOpen(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [menuOpen]);
 
   const handleCheckboxClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     const nextCompleted = !task.completed;
-    
+
     if (nextCompleted) {
-      const rect = (e.target as HTMLElement).getBoundingClientRect();
-      const x = (rect.left + rect.width / 2) / window.innerWidth;
-      const y = (rect.top + rect.height / 2) / window.innerHeight;
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
       confetti({
-        particleCount: 24,
-        spread: 45,
-        origin: { x, y },
-        colors: ['#2563eb', '#e11d48'], // Strict 2-color confetti: Cobalt & Vermilion
+        particleCount: 22,
+        spread: 42,
+        startVelocity: 22,
+        origin: {
+          x: (rect.left + rect.width / 2) / window.innerWidth,
+          y: (rect.top + rect.height / 2) / window.innerHeight,
+        },
+        colors: ['#1e4fd8', '#b42318'],
         disableForReducedMotion: true,
       });
     }
@@ -63,218 +78,282 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     onToggleComplete(task.id, nextCompleted);
   };
 
-  const getDueLabel = () => {
-    if (!task.due) return null;
-    const isOverdue = task.due < todayStr && !task.completed;
-    const isToday = task.due === todayStr;
+  const todayStr = new Date().toISOString().split('T')[0];
+  const dueDate = task.due?.slice(0, 10);
+  const isOverdue = Boolean(dueDate && dueDate < todayStr && !task.completed);
+  const isToday = dueDate === todayStr;
 
-    let text = task.due;
-    if (isToday) text = 'Today';
-    else if (task.due === new Date(Date.now() + 86400000).toISOString().split('T')[0]) {
-      text = 'Tomorrow';
+  const dueLabel = (() => {
+    if (!dueDate) return null;
+    let label: string;
+    if (isToday) {
+      label = 'Today';
+    } else if (dueDate === new Date(Date.now() + 86_400_000).toISOString().split('T')[0]) {
+      label = 'Tomorrow';
+    } else {
+      const parsed = new Date(`${dueDate}T00:00:00`);
+      label = Number.isNaN(parsed.getTime())
+        ? dueDate
+        : parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     }
+    if (isOverdue) label = `Overdue · ${label}`;
+    return task.dueTime ? `${label}, ${task.dueTime}` : label;
+  })();
 
-    if (task.dueTime) {
-      text += ` ${task.dueTime}`;
-    }
+  const priorityTone =
+    task.priority === 'urgent' || task.priority === 'high'
+      ? 'text-danger'
+      : task.priority === 'medium'
+        ? 'text-accent'
+        : 'text-ink-3';
 
-    return (
-      <span className={`font-mono text-[11px] tabular-nums ${
-        isOverdue || isToday ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-neutral-500'
-      }`}>
-        {text}
-      </span>
-    );
-  };
+  const menuItem =
+    'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] font-medium text-ink-2 transition-colors hover:bg-subtle hover:text-ink';
 
   return (
-    <div className={`group border-b border-neutral-200/60 dark:border-neutral-800/60 py-3 px-2 transition-colors select-none ${
-      isSelected 
-        ? 'bg-blue-50/70 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900/60' 
-        : task.completed 
-        ? 'opacity-40' 
-        : 'hover:bg-neutral-100/50 dark:hover:bg-neutral-900/40'
-    }`}>
-      <div className="flex items-start gap-3">
-        {/* Multi-selection Checkbox in Selection Mode */}
-        {isSelectionMode && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleSelect?.(task.id);
-            }}
-            className={`w-4.5 h-4.5 mt-0.5 rounded border flex items-center justify-center transition-all shrink-0 cursor-pointer ${
-              isSelected
-                ? 'bg-blue-600 border-blue-600 text-white'
-                : 'border-neutral-300 dark:border-neutral-600 hover:border-blue-500 bg-white dark:bg-neutral-800'
-            }`}
-            aria-label={isSelected ? 'Deselect task' : 'Select task'}
-            title={isSelected ? 'Deselect' : 'Select for batch action'}
-          >
-            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-          </button>
-        )}
-
-        {/* Architectural Minimal Checkbox - Cobalt Blue when checked */}
+    <div
+      className={`group relative flex items-start gap-3 border-b border-line px-2 py-3.5 transition-colors last:border-b-0 ${
+        isSelected
+          ? 'bg-accent-soft'
+          : task.completed
+            ? 'opacity-55'
+            : 'hover:bg-subtle/50'
+      }`}
+    >
+      {isSelectionMode && (
         <button
           type="button"
-          onClick={handleCheckboxClick}
-          className={`w-4.5 h-4.5 mt-0.5 rounded-xs border flex items-center justify-center transition-all shrink-0 cursor-pointer ${
-            task.completed
-              ? 'bg-blue-600 border-blue-600 text-white'
-              : 'border-neutral-300 dark:border-neutral-700 hover:border-blue-600 bg-transparent'
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelect?.(task.id);
+          }}
+          aria-label={isSelected ? 'Deselect task' : 'Select task'}
+          className={`mt-0.5 grid h-[17px] w-[17px] shrink-0 place-items-center rounded-[4px] border transition-colors ${
+            isSelected
+              ? 'border-accent bg-accent text-accent-ink'
+              : 'border-line-strong bg-surface hover:border-accent'
           }`}
-          aria-label={task.completed ? 'Mark incomplete' : 'Mark complete'}
         >
-          {task.completed && <Check className="w-3 h-3 stroke-[2.5]" />}
+          {isSelected && <Check className="h-3 w-3 stroke-[3]" />}
         </button>
+      )}
 
-        {/* Content area */}
-        <div 
-          className="flex-1 min-w-0 cursor-pointer" 
-          onClick={() => isSelectionMode ? onToggleSelect?.(task.id) : onEdit(task)}
-        >
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Visual Folder / List Badge */}
-            {list && (
-              <span
-                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono tracking-wide border transition-colors shrink-0 ${
-                  list.folderType === 'urgent' || list.id === 'default_urgent'
-                    ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-900/60 font-semibold'
-                    : list.folderType === 'work' || list.id === 'default_work'
-                    ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900/60 font-semibold'
-                    : 'bg-stone-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 font-medium'
-                }`}
-                title={`Category / Folder: ${list.title}`}
-              >
-                <span
-                  className="w-1.5 h-1.5 rounded-full shrink-0"
-                  style={{ backgroundColor: list.color || (list.folderType === 'urgent' ? '#e11d48' : '#2563eb') }}
-                />
-                <span className="truncate max-w-[150px]">{list.title}</span>
-              </span>
-            )}
+      {/* Complete */}
+      <button
+        type="button"
+        onClick={handleCheckboxClick}
+        aria-label={task.completed ? 'Mark incomplete' : 'Mark complete'}
+        className={`mt-0.5 grid h-[17px] w-[17px] shrink-0 place-items-center rounded-[4px] border transition-all ${
+          task.completed
+            ? 'border-accent bg-accent text-accent-ink'
+            : 'border-line-strong bg-transparent hover:border-accent hover:bg-accent-soft'
+        }`}
+      >
+        {task.completed && <Check className="h-3 w-3 stroke-[3]" />}
+      </button>
 
-            <span className={`text-sm tracking-tight leading-snug font-medium ${
-              task.completed 
-                ? 'line-through text-neutral-400 dark:text-neutral-500 font-normal' 
-                : 'text-neutral-900 dark:text-neutral-100'
-            }`}>
-              {task.title}
+      {/* Content */}
+      <div
+        className="min-w-0 flex-1 cursor-pointer"
+        onClick={() => (isSelectionMode ? onToggleSelect?.(task.id) : onEdit(task))}
+      >
+        <div className="flex items-start gap-2">
+          <p
+            className={`text-[13.5px] font-medium leading-[1.45] tracking-[-0.005em] ${
+              task.completed ? 'text-ink-3 line-through' : 'text-ink'
+            }`}
+          >
+            {task.title}
+          </p>
+        </div>
+
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-ink-3">
+          {dueLabel && (
+            <span
+              className={`inline-flex items-center gap-1 font-mono text-[10.5px] tabular-nums ${
+                isOverdue ? 'font-semibold text-danger' : isToday ? 'text-ink-2' : ''
+              }`}
+            >
+              <Calendar className="h-3 w-3 opacity-70" />
+              {dueLabel}
             </span>
+          )}
 
-            {task.starred && (
-              <Star className="w-3.5 h-3.5 text-rose-600 fill-rose-600 shrink-0" />
-            )}
-          </div>
+          {list && (
+            <span className="inline-flex items-center gap-1.5">
+              {dueLabel && <span aria-hidden="true" className="opacity-40">·</span>}
+              <span
+                className="h-1.5 w-1.5 rounded-full"
+                style={{ backgroundColor: list.color || 'var(--ink-3)' }}
+                aria-hidden="true"
+              />
+              <span className="max-w-[140px] truncate">{list.title}</span>
+            </span>
+          )}
 
-          {/* Zero-Pill Unboxed Metadata Line with typographic separators */}
-          <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
-            {task.due && (
-              <>
-                {getDueLabel()}
-                <span aria-hidden="true">·</span>
-              </>
-            )}
-
-            <span className={`font-mono uppercase text-[10px] font-semibold ${
-              task.priority === 'urgent' 
-                ? 'text-rose-600 dark:text-rose-400 font-bold' 
-                : task.priority === 'high' 
-                ? 'text-rose-600/90 dark:text-rose-400/90' 
-                : task.priority === 'medium'
-                ? 'text-blue-600 dark:text-blue-400'
-                : 'text-neutral-400'
-            }`}>
+          <span className="inline-flex items-center gap-1.5">
+            <span aria-hidden="true" className="opacity-40">·</span>
+            <span
+              className={`font-mono text-[9px] font-semibold uppercase tracking-[0.1em] ${priorityTone}`}
+            >
               {task.priority}
             </span>
+          </span>
 
-            {task.googleTaskId && (
-              <>
-                <span aria-hidden="true">·</span>
-                <span className="font-mono text-[10px] text-blue-600 dark:text-blue-400">Google Tasks</span>
-              </>
-            )}
+          {task.notes && (
+            <>
+              <span aria-hidden="true" className="opacity-40">·</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowNotes((v) => !v);
+                }}
+                className="inline-flex items-center gap-1 transition-colors hover:text-ink"
+                aria-expanded={showNotes}
+              >
+                <FileText className="h-3 w-3" />
+                {showNotes ? 'Hide note' : 'Note'}
+              </button>
+            </>
+          )}
 
-            {task.calendarEventId && (
-              <>
-                <span aria-hidden="true">·</span>
-                <span className="font-mono text-[10px] text-blue-600 dark:text-blue-400">Scheduled</span>
-              </>
-            )}
-
-            {task.notes && (
-              <>
-                <span aria-hidden="true">·</span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowNotes(!showNotes);
-                  }}
-                  className="hover:text-blue-600 inline-flex items-center gap-1"
+          {(task.googleTaskId || task.calendarEventId) && (
+            <span className="inline-flex items-center gap-1.5">
+              <span aria-hidden="true" className="opacity-40">·</span>
+              {task.googleTaskId && (
+                <span title="Synced with Google Tasks" className="inline-flex items-center gap-1">
+                  <Cloud className="h-3 w-3 text-accent/70" />
+                  Google
+                </span>
+              )}
+              {task.calendarEventId && (
+                <span
+                  title="Time-blocked on Google Calendar"
+                  className="inline-flex items-center gap-1"
                 >
-                  <FileText className="w-3 h-3" />
-                  <span>{showNotes ? 'Hide note' : 'Note'}</span>
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* Notes display */}
-          {showNotes && task.notes && (
-            <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-300 font-normal leading-relaxed whitespace-pre-wrap pl-2 border-l border-neutral-300 dark:border-neutral-700">
-              {task.notes}
-            </div>
+                  <CalendarCheck2 className="h-3 w-3 text-accent/70" />
+                  Scheduled
+                </span>
+              )}
+            </span>
           )}
         </div>
 
-        {/* Minimal Actions Bar */}
-        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          {!task.calendarEventId && !task.completed && (
-            <button
-              type="button"
-              onClick={() => onScheduleToCalendar(task)}
-              title={hasGoogleCalendarAuth ? "Block on Google Calendar" : "Sign in to schedule"}
-              className="p-1 text-neutral-400 hover:text-blue-600 transition"
-            >
-              <CalendarPlus className="w-3.5 h-3.5" />
-            </button>
+        {showNotes && task.notes && (
+          <p className="mt-2 whitespace-pre-wrap border-l border-line-strong pl-2.5 text-[12px] leading-relaxed text-ink-2">
+            {task.notes}
+          </p>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex shrink-0 items-center gap-0.5 pt-0.5">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleStar(task.id);
+          }}
+          title={task.starred ? 'Unstar task' : 'Star task'}
+          aria-label={task.starred ? 'Unstar task' : 'Star task'}
+          className={`grid h-7 w-7 place-items-center rounded-md transition-all hover:bg-surface ${
+            task.starred
+              ? 'text-warn'
+              : 'text-ink-3 opacity-0 hover:text-warn group-hover:opacity-100 focus-visible:opacity-100'
+          }`}
+        >
+          <Star className={`h-3.5 w-3.5 ${task.starred ? 'fill-warn' : ''}`} />
+        </button>
+
+        <div className="relative">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuOpen((v) => !v);
+            }}
+            title="More actions"
+            aria-label="More actions"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            className={`grid h-7 w-7 place-items-center rounded-md text-ink-3 transition-all hover:bg-surface hover:text-ink focus-visible:opacity-100 ${
+              menuOpen ? 'bg-surface text-ink opacity-100' : 'opacity-0 group-hover:opacity-100'
+            }`}
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </button>
+
+          {menuOpen && (
+            <>
+              <button
+                className="fixed inset-0 z-20 cursor-default"
+                aria-label="Close task menu"
+                tabIndex={-1}
+                onClick={() => setMenuOpen(false)}
+              />
+              <div
+                role="menu"
+                className="absolute right-0 top-[calc(100%+6px)] z-30 w-48 rounded-lg border border-line bg-surface p-1 shadow-[0_12px_36px_-8px_rgba(0,0,0,0.3)]"
+              >
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onEdit(task);
+                  }}
+                  className={menuItem}
+                >
+                  <Pencil className="h-3.5 w-3.5" /> Edit details
+                </button>
+                {!task.calendarEventId && !task.completed && (
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onScheduleToCalendar(task);
+                    }}
+                    className={menuItem}
+                  >
+                    <CalendarPlus className="h-3.5 w-3.5" />
+                    {hasGoogleCalendarAuth ? 'Block on calendar' : 'Schedule (sign in)'}
+                  </button>
+                )}
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onToggleStar(task.id);
+                  }}
+                  className={menuItem}
+                >
+                  <Star className={`h-3.5 w-3.5 ${task.starred ? 'fill-warn text-warn' : ''}`} />
+                  {task.starred ? 'Remove star' : 'Star task'}
+                </button>
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onCopy(task);
+                  }}
+                  className={menuItem}
+                >
+                  <Copy className="h-3.5 w-3.5" /> Copy task
+                </button>
+                <div className="my-1 h-px bg-line" />
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onDelete(task.id, task.title);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] font-medium text-danger transition-colors hover:bg-danger-soft"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Delete task
+                </button>
+              </div>
+            </>
           )}
-
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleStar(task.id);
-            }}
-            title={task.starred ? "Unstar" : "Star"}
-            className="p-1 text-neutral-400 hover:text-rose-600 transition"
-          >
-            <Star className={`w-3.5 h-3.5 ${task.starred ? 'fill-rose-600 text-rose-600' : ''}`} />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onEdit(task)}
-            title="Edit task"
-            className="p-1 text-neutral-400 hover:text-blue-600 transition"
-          >
-            <Edit3 className="w-3.5 h-3.5" />
-          </button>
-
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(task.id, task.title);
-            }}
-            title="Delete task"
-            className="p-1 text-neutral-400 hover:text-rose-600 transition"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
         </div>
       </div>
     </div>

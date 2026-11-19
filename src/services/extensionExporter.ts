@@ -14,8 +14,8 @@ const generateIconDataUrl = (size: number): string => {
   canvas.height = size;
   const ctx = canvas.getContext('2d');
   if (ctx) {
-    // Solid Cobalt Blue canvas
-    ctx.fillStyle = '#2563eb';
+    // Paper-cut cobalt tile
+    ctx.fillStyle = '#1e4fd8';
     ctx.beginPath();
     const radius = size * 0.22;
     ctx.roundRect ? ctx.roundRect(0, 0, size, size, radius) : ctx.rect(0, 0, size, size);
@@ -32,8 +32,8 @@ const generateIconDataUrl = (size: number): string => {
     ctx.lineTo(size * 0.72, size * 0.32);
     ctx.stroke();
 
-    // Swiss Vermilion accent point
-    ctx.fillStyle = '#e11d48';
+    // Single danger-red dot, same as the app's urgent marker
+    ctx.fillStyle = '#b42318';
     ctx.beginPath();
     ctx.arc(size * 0.78, size * 0.25, Math.max(1.5, size * 0.08), 0, Math.PI * 2);
     ctx.fill();
@@ -47,20 +47,19 @@ export const generateExtensionFiles = (clientId?: string): ExtensionFile[] => {
   const manifestJson = {
     manifest_version: 3,
     name: 'Chronotask - Task Manager & Calendar Sync',
-    version: '1.2.0',
+    version: '1.3.0',
     description: 'Minimalist personal task manager with folders, priority sorting, offline access, side panel, and Google Tasks sync.',
     permissions: [
       'storage',
       'sidePanel'
     ],
+    host_permissions: [
+      'https://task-manager-with-google.vercel.app/*'
+    ],
     content_scripts: [
       {
         matches: [
-          'https://task-manager-with-google.vercel.app/*',
-          'https://*.vercel.app/*',
-          'https://*.run.app/*',
-          'http://localhost/*',
-          'http://127.0.0.1/*'
+          'https://task-manager-with-google.vercel.app/*'
         ],
         js: ['content.js'],
         run_at: 'document_start'
@@ -91,6 +90,9 @@ export const generateExtensionFiles = (clientId?: string): ExtensionFile[] => {
         description: 'Open Chronotask Task Manager'
       }
     },
+    content_security_policy: {
+      extension_pages: "script-src 'self'; object-src 'none'; frame-src 'none'; img-src 'self' data:; style-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'"
+    },
     icons: {
       '16': 'icons/icon16.png',
       '48': 'icons/icon48.png',
@@ -98,9 +100,9 @@ export const generateExtensionFiles = (clientId?: string): ExtensionFile[] => {
     }
   };
 
-  const backgroundJs = `// Chronotask Service Worker v1.2.0
+  const backgroundJs = `// Chronotask Service Worker v1.3.0
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('Chronotask extension v1.2.0 installed successfully.');
+  console.log('Chronotask extension v1.3.0 installed successfully.');
   updateBadge();
 });
 
@@ -154,13 +156,17 @@ chrome.runtime.onMessage.addListener((message) => {
 <body>
   <header class="header">
     <div class="logo">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
       </svg>
-      <span>Chronotask <small style="font-size:10px; color:#2563eb; font-family:monospace;">v1.2</small></span>
+      <span>Chronotask <small>v1.3</small></span>
     </div>
     <div class="actions">
-      <button id="openFullApp" title="Open Full Dashboard">
+      <div class="sync" id="syncStatus" role="status" aria-live="polite" title="Sync status">
+        <span class="sync-dot" aria-hidden="true"></span>
+        <span id="syncLabel">Local only</span>
+      </div>
+      <button id="openFullApp" title="Open Full Dashboard" aria-label="Open full dashboard">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
           <polyline points="15 3 21 3 21 9"></polyline>
@@ -171,15 +177,15 @@ chrome.runtime.onMessage.addListener((message) => {
   </header>
 
   <section class="quick-add">
-    <input type="text" id="quickTaskInput" placeholder="Add task... (Press Enter)" autofocus>
+    <input type="text" id="quickTaskInput" placeholder="Add a task… (Enter)" aria-label="New task title" autofocus>
     <div class="quick-add-bar">
-      <select id="quickFolderSelect" class="mini-select">
-        <option value="default_my_tasks">📁 General</option>
-        <option value="default_work">📁 Work & Projects</option>
-        <option value="default_personal">📁 Personal</option>
-        <option value="default_urgent">📁 Urgent & Critical</option>
+      <select id="quickFolderSelect" class="mini-select" aria-label="Folder">
+        <option value="default_my_tasks">General</option>
+        <option value="default_work">Work & Projects</option>
+        <option value="default_personal">Personal</option>
+        <option value="default_urgent">Urgent & Critical</option>
       </select>
-      <select id="quickPrioritySelect" class="mini-select">
+      <select id="quickPrioritySelect" class="mini-select" aria-label="Priority">
         <option value="urgent">Urgent</option>
         <option value="high">High</option>
         <option value="medium" selected>Medium</option>
@@ -190,54 +196,57 @@ chrome.runtime.onMessage.addListener((message) => {
 
   <div class="filter-controls">
     <div class="filter-tabs">
-      <button class="tab active" data-filter="today">Today</button>
-      <button class="tab" data-filter="all">All</button>
-      <button class="tab" data-filter="upcoming">Upcoming</button>
+      <button class="tab active" data-filter="today" aria-pressed="true">Today</button>
+      <button class="tab" data-filter="all" aria-pressed="false">All</button>
+      <button class="tab" data-filter="upcoming" aria-pressed="false">Upcoming</button>
     </div>
     <div class="filter-right">
-      <select id="folderFilterSelect" class="mini-select" title="Filter by folder">
-        <option value="all">📁 All Folders</option>
+      <select id="folderFilterSelect" class="mini-select" title="Filter by folder" aria-label="Filter by folder">
+        <option value="all">All folders</option>
       </select>
-      <button id="sortToggleBtn" class="sort-btn" title="Toggle Priority High to Low">
+      <button id="sortToggleBtn" class="sort-btn" title="Toggle priority order" aria-label="Toggle priority order">
         ↓ Priority
+      </button>
+      <button id="copyFolderBtn" class="sort-btn" title="Copy tasks in the selected folder">
+        Copy
       </button>
     </div>
   </div>
 
-  <main id="taskList" class="task-list">
+  <main id="taskList" class="task-list" aria-label="Tasks">
     <!-- Tasks list rendered dynamically -->
   </main>
 
   <!-- Inline Task Detail & Edit Drawer -->
-  <div id="detailDrawer" class="detail-drawer hidden">
+  <div id="detailDrawer" class="detail-drawer hidden" role="dialog" aria-modal="true" aria-labelledby="detailTitleLabel">
     <div class="detail-header">
-      <span class="detail-title-label">Task Details</span>
-      <button id="closeDetailBtn" class="icon-btn">✕</button>
+      <span class="detail-title-label" id="detailTitleLabel">Task details</span>
+      <button id="closeDetailBtn" class="icon-btn" aria-label="Close task details">✕</button>
     </div>
     <div class="detail-body">
-      <label class="form-label">Task Title</label>
+      <label class="form-label" for="editTaskTitle">Task title</label>
       <input type="text" id="editTaskTitle" class="form-input">
 
-      <label class="form-label">Priority (High to Low)</label>
-      <div class="priority-chips">
+      <span class="form-label" id="priorityLabel">Priority</span>
+      <div class="priority-chips" role="group" aria-labelledby="priorityLabel">
         <button type="button" class="chip" data-p="urgent">Urgent</button>
         <button type="button" class="chip" data-p="high">High</button>
         <button type="button" class="chip" data-p="medium">Medium</button>
         <button type="button" class="chip" data-p="low">Low</button>
       </div>
 
-      <label class="form-label">Folder / Type</label>
+      <label class="form-label" for="editTaskFolder">Folder</label>
       <select id="editTaskFolder" class="form-input">
-        <option value="default_my_tasks">📁 General</option>
-        <option value="default_work">📁 Work & Projects</option>
-        <option value="default_personal">📁 Personal</option>
-        <option value="default_urgent">📁 Urgent & Critical</option>
+        <option value="default_my_tasks">General</option>
+        <option value="default_work">Work & Projects</option>
+        <option value="default_personal">Personal</option>
+        <option value="default_urgent">Urgent & Critical</option>
       </select>
 
-      <label class="form-label">Due Date</label>
+      <label class="form-label" for="editTaskDue">Due date</label>
       <input type="date" id="editTaskDue" class="form-input">
 
-      <label class="form-label">Notes</label>
+      <label class="form-label" for="editTaskNotes">Notes</label>
       <textarea id="editTaskNotes" rows="3" class="form-input" placeholder="Add notes..."></textarea>
     </div>
     <div class="detail-footer">
@@ -255,338 +264,573 @@ chrome.runtime.onMessage.addListener((message) => {
 </body>
 </html>`;
 
-  const popupCss = `* { box-sizing: border-box; margin: 0; padding: 0; }
+  const popupCss = `/* Chronotask extension — editorial theme.
+   Mirrors the web app tokens (paper / ink / line / accent) so the popup, the
+   side panel and the dashboard read as one product. No gradients, no floating
+   cards: hairlines, one accent, and small mono labels. */
+
+:root {
+  color-scheme: light;
+  --paper: #f7f6f2;
+  --surface: #ffffff;
+  --subtle: #efeee8;
+  --ink: #17191a;
+  --ink-2: #5b5f61;
+  --ink-3: #6d7172;
+  --line: #e3e1d9;
+  --line-strong: #cbc8bd;
+  --accent: #1e4fd8;
+  --accent-ink: #ffffff;
+  --accent-soft: #edf1fe;
+  --danger: #b42318;
+  --danger-soft: #fdf1ef;
+  --warn: #b54708;
+  --ok: #067647;
+  --font-ui: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Newsreader', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --paper: #101112;
+    --surface: #181a1b;
+    --subtle: #202324;
+    --ink: #f1f0ea;
+    --ink-2: #a7aaa9;
+    --ink-3: #8b8f8e;
+    --line: #2a2d2e;
+    --line-strong: #3d4142;
+    --accent: #7ca0ff;
+    --accent-ink: #0b1020;
+    --accent-soft: #1a2338;
+    --danger: #ff8a80;
+    --danger-soft: #2a1615;
+    --warn: #f5b26b;
+    --ok: #6fd3a3;
+  }
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
 body {
-  width: 380px;
-  height: 520px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background-color: #fafaf9;
-  color: #171717;
+  width: 440px;
+  max-width: 100vw;
+  height: 580px;
+  max-height: 100vh;
   display: flex;
   flex-direction: column;
   position: relative;
   overflow: hidden;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
 }
+
+body.sidepanel-view {
+  width: 100%;
+  max-width: 100%;
+  height: 100vh;
+  max-height: 100vh;
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+.hidden { display: none !important; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+::selection { background: var(--accent); color: var(--accent-ink); }
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--ink-3) 30%, transparent);
+  border: 2px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
+}
+
+/* Header ---------------------------------------------------------------- */
 .header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 10px 14px;
-  border-bottom: 1px solid #e5e5e5;
-  background-color: #ffffff;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 14px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
 }
+
 .logo {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: 16px;
   font-weight: 600;
-  font-size: 13px;
   letter-spacing: -0.01em;
-  color: #171717;
+  color: var(--ink);
 }
+.logo svg { align-self: center; color: var(--ink); flex: 0 0 auto; }
+.logo small {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.actions { display: flex; align-items: center; gap: 8px; }
+
+/* Sync state ------------------------------------------------------------ */
+.sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.sync-dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--line-strong);
+}
+.sync.is-online .sync-dot { background: var(--ok); }
+.sync.is-offline .sync-dot { background: var(--warn); }
+.sync.is-local .sync-dot { background: var(--line-strong); }
 .actions button {
-  background: transparent;
-  border: none;
-  color: #737373;
-  cursor: pointer;
-  padding: 4px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink-2);
+  transition: color 0.14s ease, border-color 0.14s ease, background 0.14s ease;
 }
-.actions button:hover {
-  color: #171717;
-}
+.actions button:hover { color: var(--ink); border-color: var(--line-strong); background: var(--subtle); }
+
+/* Quick add ------------------------------------------------------------- */
 .quick-add {
   padding: 10px 14px;
-  background: #ffffff;
-  border-bottom: 1px solid #f0f0f0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
 }
 .quick-add input[type="text"] {
   width: 100%;
-  padding: 7px 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
   border-radius: 4px;
-  background: #fafaf9;
-  border: 1px solid #e5e5e5;
-  color: #171717;
+  background: var(--surface);
+  color: var(--ink);
   font-size: 13px;
   outline: none;
+  transition: border-color 0.14s ease, box-shadow 0.14s ease;
 }
+.quick-add input[type="text"]::placeholder { color: var(--ink-3); }
 .quick-add input[type="text"]:focus {
-  border-color: #2563eb;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
 }
-.quick-add-bar {
-  display: flex;
-  gap: 6px;
-  margin-top: 6px;
-}
+.quick-add-bar { display: flex; gap: 6px; margin-top: 6px; }
+
 .mini-select {
-  font-size: 11px;
-  padding: 3px 6px;
-  border: 1px solid #e5e5e5;
+  max-width: 132px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
   border-radius: 4px;
-  background: #fafaf9;
-  color: #404040;
-  outline: none;
-  cursor: pointer;
-  max-width: 120px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
   text-overflow: ellipsis;
+  outline: none;
 }
+.mini-select:focus-visible { border-color: var(--accent); }
+
+/* Filters --------------------------------------------------------------- */
 .filter-controls {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
   align-items: center;
-  padding: 8px 14px 4px 14px;
-  gap: 8px;
-}
-.filter-right {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
 }
 .filter-tabs {
   display: flex;
-  gap: 4px;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
 }
 .tab {
+  padding: 4px 9px;
+  border: 0;
+  border-radius: 3px;
   background: transparent;
-  border: none;
-  color: #737373;
-  font-size: 11px;
-  font-weight: 500;
-  padding: 3px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.tab.active {
-  background: #2563eb;
-  color: #ffffff;
-}
-.sort-btn {
-  background: transparent;
-  border: 1px solid #e5e5e5;
-  color: #2563eb;
-  font-size: 10px;
-  font-family: monospace;
+  color: var(--ink-2);
+  font-size: 10.5px;
   font-weight: 600;
-  padding: 2px 6px;
+  transition: color 0.14s ease, background 0.14s ease;
+}
+.tab:hover { color: var(--ink); }
+.tab.active { background: var(--ink); color: var(--paper); }
+
+.filter-right {
+  display: flex;
+  flex: 1 1 100%;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.filter-right .mini-select { flex: 1 1 auto; max-width: none; min-width: 0; }
+
+.sort-btn, .copy-folder-btn {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
   border-radius: 4px;
-  cursor: pointer;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  transition: color 0.14s ease, border-color 0.14s ease;
 }
-.sort-btn:hover {
-  background: #eff6ff;
-  border-color: #2563eb;
-}
+.sort-btn:hover, .copy-folder-btn:hover { color: var(--ink); border-color: var(--line-strong); }
+
+/* Task list ------------------------------------------------------------- */
 .task-list {
   flex: 1;
   overflow-y: auto;
-  padding: 4px 14px 10px 14px;
   display: flex;
   flex-direction: column;
-}
-.task-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 4px;
-  border-bottom: 1px solid #f0f0f0;
-  transition: background 0.15s;
-  cursor: pointer;
-}
-.task-item:hover {
-  background: #f5f5f4;
-}
-.task-item.completed {
-  opacity: 0.4;
-}
-.task-item.completed .task-title {
-  text-decoration: line-through;
-  color: #737373;
-}
-.task-checkbox {
-  cursor: pointer;
-  width: 16px;
-  height: 16px;
-  accent-color: #2563eb;
-}
-.task-content {
-  flex: 1;
-  min-width: 0;
-}
-.task-title {
-  font-size: 13px;
-  color: #171717;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.task-meta {
-  font-size: 10px;
-  color: #737373;
-  font-family: monospace;
-  margin-top: 2px;
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-.priority-tag {
-  font-weight: 700;
-  text-transform: uppercase;
-}
-.priority-urgent { color: #e11d48; }
-.priority-high { color: #e11d48; }
-.priority-medium { color: #2563eb; }
-.priority-low { color: #a3a3a3; }
-.footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 14px;
-  border-top: 1px solid #e5e5e5;
-  font-size: 11px;
-  color: #737373;
-  background: #ffffff;
-}
-.footer button {
-  background: transparent;
-  border: 1px solid #e5e5e5;
-  color: #525252;
-  padding: 3px 6px;
-  border-radius: 4px;
-  font-size: 11px;
-  cursor: pointer;
-}
-.footer button:hover {
-  border-color: #171717;
-  color: #171717;
-}
-.btn-sync {
-  color: #2563eb !important;
-  font-weight: 500;
-}
-.folder-badge {
-  font-size: 9px;
-  font-family: monospace;
-  padding: 1px 4px;
-  border-radius: 3px;
-  border: 1px solid #e5e5e5;
-  background: #f5f5f4;
-  color: #525252;
-  margin-right: 4px;
-  display: inline-block;
-}
-.folder-badge.folder-urgent {
-  background: #fef2f2;
-  border-color: #fecdd3;
-  color: #e11d48;
-  font-weight: 600;
-}
-.folder-badge.folder-work {
-  background: #eff6ff;
-  border-color: #bfdbfe;
-  color: #2563eb;
-  font-weight: 600;
+  padding: 2px 14px 10px;
 }
 
-/* Detail Drawer */
+.task-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.task-item:last-child { border-bottom: 0; }
+.task-item:hover { background: color-mix(in srgb, var(--subtle) 55%, transparent); }
+.task-item.completed { opacity: 0.68; }
+.task-item.completed .task-title {
+  color: var(--ink-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--line-strong);
+}
+
+.task-check {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  margin: -5px -6px -5px -5px;
+  cursor: pointer;
+}
+
+.task-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  background: var(--surface);
+  cursor: pointer;
+  position: relative;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.task-checkbox:hover { border-color: var(--ink-3); }
+.task-checkbox:checked { background: var(--accent); border-color: var(--accent); }
+.task-checkbox:checked::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-6' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 12px 12px no-repeat;
+}
+
+.task-content { flex: 1; min-width: 0; }
+
+.task-title {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.folder-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 5px;
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}
+.folder-badge::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.folder-badge.folder-urgent { color: var(--danger); }
+.folder-badge.folder-work { color: var(--ink-2); }
+
+.task-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 6px;
+  margin-top: 3px;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.priority-tag { font-weight: 700; letter-spacing: 0.06em; }
+.priority-urgent, .priority-high { color: var(--danger); }
+.priority-medium { color: var(--accent); }
+.priority-low { color: var(--ink-3); }
+
+.task-copy {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.task-item:hover .task-copy, .task-copy:focus-visible { opacity: 1; }
+.task-copy:hover { color: var(--ink); border-color: var(--line); background: var(--surface); }
+
+.empty-state {
+  padding: 34px 18px;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  text-align: center;
+}
+
+/* Footer ---------------------------------------------------------------- */
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 14px;
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+}
+.footer button {
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: color 0.14s ease, border-color 0.14s ease;
+}
+.footer button:hover { color: var(--ink); border-color: var(--line-strong); }
+.footer .btn-sync {
+  padding-left: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--accent);
+}
+.footer .btn-sync:hover { color: var(--ink); }
+
+/* Detail drawer --------------------------------------------------------- */
 .detail-drawer {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: #ffffff;
+  inset: 0;
   z-index: 100;
   display: flex;
   flex-direction: column;
+  background: var(--paper);
 }
-.detail-drawer.hidden { display: none; }
 .detail-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 10px 14px;
-  border-bottom: 1px solid #e5e5e5;
-  font-weight: 600;
-  font-size: 13px;
+  justify-content: space-between;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+}
+.detail-title-label {
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 .icon-btn {
-  background: transparent;
-  border: none;
-  color: #737373;
-  cursor: pointer;
-  font-size: 14px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 12px;
+  line-height: 1;
 }
+.icon-btn:hover { color: var(--ink); border-color: var(--line-strong); }
+
 .detail-body {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 3px;
+  padding: 12px 14px 16px;
+  background: var(--paper);
 }
 .form-label {
-  font-size: 10px;
-  font-family: monospace;
+  margin-top: 10px;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #737373;
-  letter-spacing: 0.05em;
-  margin-top: 4px;
 }
+.form-label:first-child { margin-top: 0; }
+
 .form-input {
   width: 100%;
-  padding: 6px 8px;
-  border: 1px solid #e5e5e5;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
   border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-ui);
   font-size: 12px;
-  color: #171717;
-  background: #fafaf9;
   outline: none;
+  transition: border-color 0.14s ease, box-shadow 0.14s ease;
 }
-.form-input:focus { border-color: #2563eb; }
+.form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+textarea.form-input { min-height: 66px; resize: vertical; }
+
 .priority-chips {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 4px;
 }
 .chip {
-  padding: 4px 6px;
-  border: 1px solid #e5e5e5;
+  padding: 6px 4px;
+  border: 1px solid var(--line);
   border-radius: 4px;
-  background: #fafaf9;
-  font-size: 10px;
-  font-family: monospace;
-  cursor: pointer;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   text-align: center;
+  transition: color 0.14s ease, border-color 0.14s ease;
 }
-.chip.selected[data-p="urgent"] { background: #e11d48; color: #fff; border-color: #e11d48; font-weight: 700; }
-.chip.selected[data-p="high"] { background: #fef2f2; color: #e11d48; border-color: #e11d48; font-weight: 700; }
-.chip.selected[data-p="medium"] { background: #2563eb; color: #fff; border-color: #2563eb; font-weight: 700; }
-.chip.selected[data-p="low"] { background: #e5e5e5; color: #171717; border-color: #a3a3a3; font-weight: 700; }
+.chip:hover { color: var(--ink); border-color: var(--line-strong); }
+.chip.selected { background: var(--ink); border-color: var(--ink); color: var(--paper); font-weight: 600; }
+.chip.selected[data-p="urgent"] { background: var(--danger); border-color: var(--danger); color: #fff; }
+
 .detail-footer {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 10px 14px;
-  border-top: 1px solid #e5e5e5;
+  border-top: 1px solid var(--line);
+  background: var(--paper);
 }
 .btn-delete {
-  background: transparent;
-  border: none;
-  color: #e11d48;
-  font-size: 11px;
-  cursor: pointer;
-}
-.btn-save {
-  background: #2563eb;
-  color: #ffffff;
-  border: none;
-  padding: 6px 14px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
   border-radius: 4px;
-  font-size: 12px;
+  background: transparent;
+  color: var(--danger);
+  font-size: 11.5px;
   font-weight: 600;
-  cursor: pointer;
 }
-`;
+.btn-delete:hover { background: var(--danger-soft); }
+.btn-save {
+  padding: 7px 14px;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 11.5px;
+  font-weight: 600;
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+}
+.btn-save:hover { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 
-  const popupJs = `// Chronotask Extension Popup Logic v1.2.0
+/* Narrow surfaces: Chrome's 200% zoom halves the popup to ~190 CSS px. */
+@media (max-width: 260px) {
+  .logo small { display: none; }
+  #syncLabel { display: none; }
+  .quick-add-bar { flex-wrap: wrap; }
+  .quick-add-bar .mini-select { flex: 1 1 90px; max-width: none; min-width: 0; }
+  .filter-right { flex-wrap: wrap; }
+  .filter-right .mini-select { flex: 1 1 100%; }
+  .footer { flex-wrap: wrap; }
+  .task-copy { display: none; }
+  .task-item { gap: 8px; }
+  .priority-chips { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0.001ms !important; }
+}`
+
+  const popupJs = `// Chronotask Extension Popup Logic v1.3.0
 let currentFilter = 'today';
 let selectedFolderId = 'all';
 let prioritySortHighToLow = true;
@@ -600,11 +844,21 @@ const PRIORITY_WEIGHT = {
 };
 
 const DEFAULT_FOLDERS = [
-  { id: 'default_my_tasks', title: 'General', color: '#2563eb' },
+  { id: 'default_my_tasks', title: 'General', color: '#1e4fd8' },
   { id: 'default_work', title: 'Work & Projects', color: '#059669' },
   { id: 'default_personal', title: 'Personal', color: '#7c3aed' },
   { id: 'default_urgent', title: 'Urgent & Critical', color: '#e11d48' },
 ];
+
+function isChronotaskTab(tab) {
+  if (!tab || !tab.url) return false;
+  try {
+    const parsed = new URL(tab.url);
+    return parsed.origin === 'https://task-manager-with-google.vercel.app';
+  } catch (e) {
+    return false;
+  }
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   await renderFolderDropdowns();
@@ -614,7 +868,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // On popup open, immediately trigger a sync check with any open Chronotask tab
   if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
     chrome.tabs.query({}, (tabs) => {
-      const matchTab = tabs.find(t => t.url && (t.url.includes('vercel.app') || t.url.includes('run.app') || t.url.includes('localhost') || t.url.includes('127.0.0.1')));
+      const matchTab = tabs.find(isChronotaskTab);
       if (matchTab && matchTab.id) {
         chrome.tabs.sendMessage(matchTab.id, { type: 'TRIGGER_PAGE_SYNC' }, () => {});
       }
@@ -700,10 +954,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  const copyFolderBtn = document.getElementById('copyFolderBtn');
+  if (copyFolderBtn) {
+    copyFolderBtn.addEventListener('click', copyCurrentFolderTasks);
+  }
+
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', (e) => {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(t => {
+        t.classList.remove('active');
+        t.setAttribute('aria-pressed', 'false');
+      });
       tab.classList.add('active');
+      tab.setAttribute('aria-pressed', 'true');
       currentFilter = tab.dataset.filter || 'today';
       renderTasks();
     });
@@ -736,7 +999,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       footerSync.textContent = 'Syncing...';
       if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
         chrome.tabs.query({}, (tabs) => {
-          const matchTab = tabs.find(t => t.url && (t.url.includes('vercel.app') || t.url.includes('run.app') || t.url.includes('localhost') || t.url.includes('127.0.0.1')));
+          const matchTab = tabs.find(isChronotaskTab);
           if (matchTab && matchTab.id) {
             chrome.tabs.sendMessage(matchTab.id, { type: 'TRIGGER_PAGE_SYNC' }, () => {});
             chrome.tabs.update(matchTab.id, { active: true });
@@ -784,6 +1047,35 @@ document.addEventListener('DOMContentLoaded', async () => {
       chip.classList.add('selected');
     });
   });
+
+  // Keyboard: "/" focuses capture, Esc closes the drawer, Cmd/Ctrl+Enter saves.
+  document.addEventListener('keydown', (e) => {
+    const drawer = document.getElementById('detailDrawer');
+    const drawerOpen = drawer && !drawer.classList.contains('hidden');
+
+    if (e.key === 'Escape' && drawerOpen) {
+      e.preventDefault();
+      closeDetailDrawer();
+      return;
+    }
+    if (drawerOpen && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      saveTaskDetail();
+      return;
+    }
+    if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      const active = document.activeElement;
+      const typing = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT' || active.isContentEditable);
+      if (!typing) {
+        e.preventDefault();
+        const input = document.getElementById('quickTaskInput');
+        if (input) input.focus();
+      }
+    }
+  });
+
+  window.addEventListener('online', updateSyncStatus);
+  window.addEventListener('offline', updateSyncStatus);
 });
 
 async function getStoredLists() {
@@ -813,11 +1105,12 @@ async function saveStoredLists(lists) {
 async function promptCreateFolder() {
   const name = window.prompt('Enter new folder name:');
   if (!name || !name.trim()) return null;
+  const safeName = name.trim().slice(0, 100);
   const lists = await getStoredLists();
   const newFolder = {
     id: 'folder_' + Date.now(),
-    title: name.trim(),
-    color: '#2563eb'
+    title: safeName,
+    color: '#1e4fd8'
   };
   lists.push(newFolder);
   await saveStoredLists(lists);
@@ -832,7 +1125,7 @@ async function renderFolderDropdowns() {
   const quickSelect = document.getElementById('quickFolderSelect');
   if (quickSelect) {
     const currentVal = quickSelect.value || 'default_my_tasks';
-    quickSelect.innerHTML = lists.map(l => '<option value="' + l.id + '">📁 ' + escapeHtml(l.title) + '</option>').join('') +
+    quickSelect.innerHTML = lists.map(l => '<option value="' + escapeHtml(l.id) + '">' + escapeHtml(l.title) + '</option>').join('') +
       '<option value="__NEW_FOLDER__">➕ New Folder...</option>';
     if (lists.some(l => l.id === currentVal)) {
       quickSelect.value = currentVal;
@@ -845,7 +1138,7 @@ async function renderFolderDropdowns() {
   const editSelect = document.getElementById('editTaskFolder');
   if (editSelect) {
     const currentVal = editSelect.value;
-    editSelect.innerHTML = lists.map(l => '<option value="' + l.id + '">📁 ' + escapeHtml(l.title) + '</option>').join('') +
+    editSelect.innerHTML = lists.map(l => '<option value="' + escapeHtml(l.id) + '">' + escapeHtml(l.title) + '</option>').join('') +
       '<option value="__NEW_FOLDER__">➕ New Folder...</option>';
     if (currentVal && lists.some(l => l.id === currentVal)) {
       editSelect.value = currentVal;
@@ -855,8 +1148,8 @@ async function renderFolderDropdowns() {
   // 3. Filter folder select in toolbar
   const filterSelect = document.getElementById('folderFilterSelect');
   if (filterSelect) {
-    filterSelect.innerHTML = '<option value="all">📁 All Folders</option>' +
-      lists.map(l => '<option value="' + l.id + '">📁 ' + escapeHtml(l.title) + '</option>').join('');
+    filterSelect.innerHTML = '<option value="all">All folders</option>' +
+      lists.map(l => '<option value="' + escapeHtml(l.id) + '">' + escapeHtml(l.title) + '</option>').join('');
     if (selectedFolderId === 'all' || lists.some(l => l.id === selectedFolderId)) {
       filterSelect.value = selectedFolderId;
     } else {
@@ -887,13 +1180,17 @@ async function saveStoredTasks(tasks) {
 
 async function addTask(title, folderId, priority) {
   const tasks = await getStoredTasks();
+  const cleanTitle = (title || '').trim().slice(0, 500);
+  if (!cleanTitle) return;
+  const cleanFolder = (folderId || 'default_my_tasks').slice(0, 128);
+  const cleanPriority = sanitizePriority(priority);
   const newTask = {
     id: 't_' + Date.now(),
-    title,
-    listId: folderId || 'default_my_tasks',
-    folderId: folderId || 'default_my_tasks',
+    title: cleanTitle,
+    listId: cleanFolder,
+    folderId: cleanFolder,
     completed: false,
-    priority: priority || 'medium',
+    priority: cleanPriority,
     due: new Date().toISOString().split('T')[0],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -937,12 +1234,16 @@ function openDetailDrawer(task) {
   });
 
   drawer.classList.remove('hidden');
+  const focusTarget = document.getElementById('editTaskTitle');
+  if (focusTarget) focusTarget.focus();
 }
 
 function closeDetailDrawer() {
   const drawer = document.getElementById('detailDrawer');
   if (drawer) drawer.classList.add('hidden');
   editingTaskId = null;
+  const quick = document.getElementById('quickTaskInput');
+  if (quick) quick.focus();
 }
 
 async function saveTaskDetail() {
@@ -951,23 +1252,25 @@ async function saveTaskDetail() {
   const task = tasks.find(t => t.id === editingTaskId);
   if (task) {
     const titleEl = document.getElementById('editTaskTitle');
-    const title = titleEl ? titleEl.value.trim() : '';
+    const title = titleEl ? titleEl.value.trim().slice(0, 500) : '';
     if (!title) return;
 
     const selectedChip = document.querySelector('.chip.selected');
-    const priority = selectedChip && selectedChip.dataset.p ? selectedChip.dataset.p : 'medium';
+    const rawPriority = selectedChip && selectedChip.dataset.p ? selectedChip.dataset.p : 'medium';
+    const priority = sanitizePriority(rawPriority);
 
     const folderEl = document.getElementById('editTaskFolder');
     if (folderEl) {
-      task.folderId = folderEl.value;
+      task.folderId = (folderEl.value || 'default_my_tasks').slice(0, 128);
       task.listId = task.folderId;
     }
 
     const dueEl = document.getElementById('editTaskDue');
-    task.due = dueEl && dueEl.value ? dueEl.value : undefined;
+    const rawDue = dueEl && dueEl.value ? dueEl.value : '';
+    task.due = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(rawDue) ? rawDue : undefined;
 
     const notesEl = document.getElementById('editTaskNotes');
-    task.notes = notesEl && notesEl.value.trim() ? notesEl.value.trim() : undefined;
+    task.notes = notesEl && notesEl.value.trim() ? notesEl.value.trim().slice(0, 2000) : undefined;
 
     task.title = title;
     task.priority = priority;
@@ -986,6 +1289,68 @@ async function deleteTask() {
   await saveStoredTasks(tasks);
   closeDetailDrawer();
   renderTasks();
+}
+
+async function copyText(text, feedbackButton) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+    if (feedbackButton) {
+      const original = feedbackButton.textContent;
+      feedbackButton.textContent = 'Copied!';
+      setTimeout(() => { feedbackButton.textContent = original; }, 1400);
+    }
+  } catch (e) {
+    console.warn('Copy failed:', e);
+  }
+}
+
+function formatTaskForCopy(task, listMap) {
+  const folder = listMap.get(task.folderId || task.listId || 'default_my_tasks');
+  const details = [
+    task.completed ? 'Completed' : 'Open',
+    (task.priority || 'medium') + ' priority',
+    task.due ? 'Due ' + task.due + (task.dueTime ? ' at ' + task.dueTime : '') : '',
+    folder ? 'Folder: ' + folder.title : ''
+  ].filter(Boolean);
+  return [task.title || 'Untitled task', details.join(' · '), task.notes || ''].filter(Boolean).join('\\n');
+}
+
+async function copyTaskById(taskId, button) {
+  const [tasks, lists] = await Promise.all([getStoredTasks(), getStoredLists()]);
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return;
+  const listMap = new Map();
+  lists.forEach(list => listMap.set(list.id, list));
+  await copyText(formatTaskForCopy(task, listMap), button);
+}
+
+async function copyCurrentFolderTasks() {
+  const [tasks, lists] = await Promise.all([getStoredTasks(), getStoredLists()]);
+  const listMap = new Map();
+  lists.forEach(list => listMap.set(list.id, list));
+  const selectedTasks = selectedFolderId === 'all'
+    ? tasks
+    : tasks.filter(task => (task.folderId || task.listId || 'default_my_tasks') === selectedFolderId);
+  const folderTitle = selectedFolderId === 'all'
+    ? 'All Tasks'
+    : (listMap.get(selectedFolderId) || {}).title || 'Folder Tasks';
+  const text = [
+    folderTitle + ' — ' + selectedTasks.length + ' task' + (selectedTasks.length === 1 ? '' : 's'),
+    '',
+    ...selectedTasks.map((task, index) => (index + 1) + '. ' + formatTaskForCopy(task, listMap))
+  ].join('\\n\\n');
+  await copyText(text, document.getElementById('copyFolderBtn'));
 }
 
 async function renderTasks() {
@@ -1023,7 +1388,7 @@ async function renderTasks() {
   });
 
   if (filtered.length === 0) {
-    container.innerHTML = '<div style="text-align:center; padding: 35px 20px; color:#a3a3a3; font-size:12px;">No tasks in this view. Press Enter above to add one.</div>';
+    container.innerHTML = '<div class="empty-state">No tasks in this view. Press Enter above to add one.</div>';
     return;
   }
 
@@ -1035,22 +1400,27 @@ async function renderTasks() {
     let extraCls = '';
     if (fId === 'default_urgent') extraCls = 'folder-urgent';
     else if (fId === 'default_work') extraCls = 'folder-work';
-    else if (folder && folder.color) {
+    else if (folder && isValidHexColor(folder.color)) {
       folderStyle = 'border-color: ' + folder.color + '40; color: ' + folder.color + ';';
     }
 
+    const safeTaskId = escapeHtml(t.id || '');
     const safeTitle = escapeHtml(t.title || '');
+    const safeLabel = escapeHtml(t.title || 'Untitled task');
+    const folderBadge = selectedFolderId === 'all'
+      ? '<span class="folder-badge ' + extraCls + '" style="' + folderStyle + '">' + escapeHtml(folderTitle) + '</span> '
+      : '';
     const isCompleted = Boolean(t.completed);
-    const pTag = t.priority || 'medium';
-    const dueLabel = t.due ? (t.due === today ? 'Today' : t.due) : '';
+    const pTag = sanitizePriority(t.priority);
+    const dueLabel = t.due ? (t.due === today ? 'Today' : escapeHtml(t.due)) : '';
     const dueSpan = dueLabel ? '<span>· ' + dueLabel + '</span>' : '';
     const noteSpan = t.notes ? '<span>· Note</span>' : '';
 
-    return '<div class="task-item ' + (isCompleted ? 'completed' : '') + '" data-id="' + t.id + '">' +
-      '<input type="checkbox" class="task-checkbox" ' + (isCompleted ? 'checked' : '') + '>' +
+    return '<div class="task-item ' + (isCompleted ? 'completed' : '') + '" data-id="' + safeTaskId + '">' +
+      '<label class="task-check"><input type="checkbox" class="task-checkbox" ' + (isCompleted ? 'checked' : '') + ' aria-label="Complete ' + safeLabel + '"></label>' +
       '<div class="task-content">' +
         '<div class="task-title">' +
-          '<span class="folder-badge ' + extraCls + '" style="' + folderStyle + '">📁 ' + escapeHtml(folderTitle) + '</span> ' +
+          folderBadge +
           safeTitle +
         '</div>' +
         '<div class="task-meta">' +
@@ -1059,8 +1429,13 @@ async function renderTasks() {
           noteSpan +
         '</div>' +
       '</div>' +
+      '<button type="button" class="task-copy" data-id="' + safeTaskId + '" title="Copy task" aria-label="Copy task">⧉</button>' +
     '</div>';
   }).join('');
+
+  container.querySelectorAll('.task-check').forEach(label => {
+    label.addEventListener('click', (e) => e.stopPropagation());
+  });
 
   container.querySelectorAll('.task-checkbox').forEach(cb => {
     cb.addEventListener('click', (e) => {
@@ -1072,10 +1447,17 @@ async function renderTasks() {
     });
   });
 
+  container.querySelectorAll('.task-copy').forEach(button => {
+    button.addEventListener('click', (e) => {
+      e.stopPropagation();
+      copyTaskById(button.dataset.id, button);
+    });
+  });
+
   // Click on task opens detail edit drawer
   container.querySelectorAll('.task-item').forEach(item => {
     item.addEventListener('click', (e) => {
-      if (e.target.classList.contains('task-checkbox')) return;
+      if (e.target.classList.contains('task-checkbox') || e.target.classList.contains('task-copy')) return;
       const taskId = item.dataset.id;
       const targetTask = tasks.find(t => t.id === taskId);
       if (targetTask) {
@@ -1085,37 +1467,137 @@ async function renderTasks() {
   });
 }
 
+function isValidHexColor(color) {
+  return typeof color === 'string' && /^#[0-9a-fA-F]{6}$/.test(color);
+}
+
+function sanitizePriority(priority) {
+  const allowed = ['urgent', 'high', 'medium', 'low'];
+  return allowed.indexOf(priority) >= 0 ? priority : 'medium';
+}
+
 function escapeHtml(str) {
-  if (!str) return '';
-  const div = document.createElement('div');
-  div.textContent = String(str);
-  return div.innerHTML;
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 async function updateSyncStatus() {
-  try {
-    if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) return;
-    const data = await chrome.storage.local.get(['chronotask_last_synced', 'chronotask_user']);
-    const footerSync = document.getElementById('openFullAppFooter');
-    if (!footerSync) return;
-    if (data.chronotask_last_synced) {
-      const user = data.chronotask_user ? JSON.parse(data.chronotask_user) : null;
-      const d = new Date(data.chronotask_last_synced);
-      const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      footerSync.textContent = '✓ Synced ' + timeStr + ' ↗';
-      footerSync.title = (user && user.email ? 'Connected: ' + user.email + ' · ' : '') + 'Synced with Vercel Web App at ' + timeStr;
-    } else {
-      footerSync.textContent = 'Sync Google Tasks ↗';
+  const statusEl = document.getElementById('syncStatus');
+  const labelEl = document.getElementById('syncLabel');
+  const footerSync = document.getElementById('openFullAppFooter');
+
+  function setState(state, text, title) {
+    if (statusEl) {
+      statusEl.classList.remove('is-online', 'is-offline', 'is-local');
+      statusEl.classList.add('is-' + state);
+      if (title) statusEl.title = title;
     }
-  } catch (e) {}
+    if (labelEl) labelEl.textContent = text;
+  }
+
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    setState('offline', 'Offline', 'This browser has no network connection');
+    if (footerSync) footerSync.textContent = 'Sync Google Tasks ↗';
+    return;
+  }
+
+  try {
+    if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+      setState('local', 'Local only', 'Extension storage is unavailable');
+      if (footerSync) footerSync.textContent = 'Sync Google Tasks ↗';
+      return;
+    }
+    const data = await chrome.storage.local.get(['chronotask_last_synced', 'chronotask_user']);
+    let user = null;
+    try { user = data.chronotask_user ? JSON.parse(data.chronotask_user) : null; } catch (e) {}
+
+    if (!data.chronotask_last_synced) {
+      setState('local', 'Local only', 'Not connected to the web app yet. Use Sync Google Tasks.');
+      if (footerSync) footerSync.textContent = 'Sync Google Tasks ↗';
+      return;
+    }
+
+    const when = new Date(data.chronotask_last_synced);
+    const minutes = Math.max(0, Math.floor((Date.now() - when.getTime()) / 60000));
+    const relative = minutes < 1 ? 'just now' : minutes < 60 ? minutes + 'm ago' : Math.floor(minutes / 60) + 'h ago';
+    const timeStr = when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const stale = minutes > 60 * 24;
+    const who = user && user.email ? 'Connected: ' + user.email + ' · ' : '';
+    setState(
+      stale ? 'offline' : 'online',
+      stale ? 'Stale' : 'Synced ' + relative,
+      who + 'Last sync ' + timeStr
+    );
+    if (footerSync) {
+      footerSync.textContent = '✓ Synced ' + timeStr + ' ↗';
+      footerSync.title = who + 'Synced with the web app at ' + timeStr;
+    }
+  } catch (e) {
+    setState('local', 'Local only', 'Sync status unavailable');
+    if (footerSync) footerSync.textContent = 'Sync Google Tasks ↗';
+  }
 }
 `;
 
-  const contentJs = `// Chronotask Extension Sync Bridge v1.2.0
+  const contentJs = `// Chronotask Extension Sync Bridge v1.3.0
 // Synchronizes tasks and folders bidirectionally between Chronotask Web App and chrome.storage.local
 
 (function() {
+  // Prevent execution inside embedded or third-party iframes
+  if (window !== window.top) return;
+
+  // Only run on the official verified Chronotask web application
+  const ALLOWED_ORIGINS = [
+    'https://task-manager-with-google.vercel.app'
+  ];
+  if (ALLOWED_ORIGINS.indexOf(window.location.origin) < 0) return;
+
   console.log('[Chronotask Bridge] Initialized on ' + window.location.href);
+  const appOrigin = window.location.origin;
+
+  // Tokens are intentionally kept in the web app only. Remove values written by
+  // older exports so upgrading the extension also clears the stale credential.
+  chrome.storage.local.remove(['chronotask_access_token']);
+
+  const PRIORITIES = ['urgent', 'high', 'medium', 'low'];
+
+  function text(value, max) {
+    return typeof value === 'string' ? value.slice(0, max) : '';
+  }
+
+  function sanitizeTask(task, index) {
+    if (!task || typeof task !== 'object') return null;
+    const clean = Object.assign({}, task);
+    clean.id = text(task.id, 128) || 'task_' + index;
+    clean.title = text(task.title, 500);
+    clean.notes = typeof task.notes === 'string' ? task.notes.slice(0, 2000) : undefined;
+    clean.completed = Boolean(task.completed);
+    clean.priority = PRIORITIES.indexOf(task.priority) >= 0 ? task.priority : 'medium';
+    clean.due = typeof task.due === 'string' && /^[0-9]{4}-[0-9]{2}-[0-9]{2}([T ].*)?$/.test(task.due)
+      ? task.due.slice(0, 40)
+      : undefined;
+    if (typeof task.folderId === 'string') clean.folderId = task.folderId.slice(0, 128);
+    if (typeof task.listId === 'string') clean.listId = task.listId.slice(0, 128);
+    return clean;
+  }
+
+  function sanitizeList(list, index) {
+    if (!list || typeof list !== 'object') return null;
+    const clean = Object.assign({}, list);
+    clean.id = text(list.id, 128) || 'list_' + index;
+    clean.title = text(list.title, 200);
+    if (typeof list.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(list.color)) {
+      clean.color = list.color;
+    } else {
+      delete clean.color;
+    }
+    return clean;
+  }
 
   // Send extension's stored tasks and folders to web app
   function sendExtensionStateToWeb() {
@@ -1130,7 +1612,7 @@ async function updateSyncStatus() {
           tasks,
           lists,
           lastSynced: res.chronotask_last_synced || null
-        }, '*');
+        }, appOrigin);
       });
     } catch (e) {
       console.warn('[Chronotask Bridge] Read storage error:', e);
@@ -1142,7 +1624,7 @@ async function updateSyncStatus() {
     window.postMessage({
       type: 'CHRONOTASK_PING_FOR_STATE',
       source: 'chronotask-extension'
-    }, '*');
+    }, appOrigin);
   }
 
   // Trigger sync on start and at multiple lifecycle stages
@@ -1166,26 +1648,29 @@ async function updateSyncStatus() {
 
   // Listen for messages from web app (App.tsx)
   window.addEventListener('message', (event) => {
+    if (event.source !== window || event.origin !== appOrigin) return;
     if (!event.data || typeof event.data !== 'object') return;
     if (event.data.source === 'chronotask-extension') return; // Ignore own messages
 
     if (event.data.type === 'CHRONOTASK_SYNC_TO_EXTENSION') {
-      const { tasks, lists, accessToken, user, lastSynced } = event.data;
+      if (event.data.source !== 'chronotask-web-app') return;
       const updateData = {};
-      if (Array.isArray(tasks)) {
+      if (Array.isArray(event.data.tasks)) {
+        const tasks = event.data.tasks.slice(0, 1000).map(sanitizeTask).filter(Boolean);
         updateData['chronotask_tasks_v1'] = JSON.stringify(tasks);
       }
-      if (Array.isArray(lists)) {
+      if (Array.isArray(event.data.lists)) {
+        const lists = event.data.lists.slice(0, 200).map(sanitizeList).filter(Boolean);
         updateData['chronotask_lists_v1'] = JSON.stringify(lists);
       }
-      if (accessToken) {
-        updateData['chronotask_access_token'] = accessToken;
+      if (event.data.user && typeof event.data.user === 'object') {
+        updateData['chronotask_user'] = JSON.stringify({
+          email: text(event.data.user.email, 200),
+          displayName: text(event.data.user.displayName, 200)
+        });
       }
-      if (user) {
-        updateData['chronotask_user'] = JSON.stringify(user);
-      }
-      if (lastSynced) {
-        updateData['chronotask_last_synced'] = lastSynced;
+      if (typeof event.data.lastSynced === 'string' && !isNaN(Date.parse(event.data.lastSynced))) {
+        updateData['chronotask_last_synced'] = event.data.lastSynced.slice(0, 40);
       }
 
       chrome.storage.local.set(updateData, () => {
@@ -1228,20 +1713,21 @@ async function updateSyncStatus() {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chronotask Side Panel</title>
   <link rel="stylesheet" href="popup.css">
-  <style>
-    body { width: 100%; height: 100vh; }
-  </style>
 </head>
-<body>
+<body class="sidepanel-view">
   <header class="header">
     <div class="logo">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
       </svg>
-      <span>Chronotask <small style="font-size:10px; color:#2563eb; font-family:monospace;">Side Panel</small></span>
+      <span>Chronotask <small>Side panel</small></span>
     </div>
     <div class="actions">
-      <button id="openFullApp" title="Open Full Dashboard">
+      <div class="sync" id="syncStatus" role="status" aria-live="polite" title="Sync status">
+        <span class="sync-dot" aria-hidden="true"></span>
+        <span id="syncLabel">Local only</span>
+      </div>
+      <button id="openFullApp" title="Open Full Dashboard" aria-label="Open full dashboard">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
           <polyline points="15 3 21 3 21 9"></polyline>
@@ -1252,15 +1738,15 @@ async function updateSyncStatus() {
   </header>
 
   <section class="quick-add">
-    <input type="text" id="quickTaskInput" placeholder="Add task... (Press Enter)" autofocus>
+    <input type="text" id="quickTaskInput" placeholder="Add a task… (Enter)" aria-label="New task title" autofocus>
     <div class="quick-add-bar">
-      <select id="quickFolderSelect" class="mini-select">
-        <option value="default_my_tasks">📁 General</option>
-        <option value="default_work">📁 Work & Projects</option>
-        <option value="default_personal">📁 Personal</option>
-        <option value="default_urgent">📁 Urgent & Critical</option>
+      <select id="quickFolderSelect" class="mini-select" aria-label="Folder">
+        <option value="default_my_tasks">General</option>
+        <option value="default_work">Work & Projects</option>
+        <option value="default_personal">Personal</option>
+        <option value="default_urgent">Urgent & Critical</option>
       </select>
-      <select id="quickPrioritySelect" class="mini-select">
+      <select id="quickPrioritySelect" class="mini-select" aria-label="Priority">
         <option value="urgent">Urgent</option>
         <option value="high">High</option>
         <option value="medium" selected>Medium</option>
@@ -1271,53 +1757,53 @@ async function updateSyncStatus() {
 
   <div class="filter-controls">
     <div class="filter-tabs">
-      <button class="tab active" data-filter="today">Today</button>
-      <button class="tab" data-filter="all">All</button>
-      <button class="tab" data-filter="upcoming">Upcoming</button>
+      <button class="tab active" data-filter="today" aria-pressed="true">Today</button>
+      <button class="tab" data-filter="all" aria-pressed="false">All</button>
+      <button class="tab" data-filter="upcoming" aria-pressed="false">Upcoming</button>
     </div>
     <div class="filter-right">
-      <select id="folderFilterSelect" class="mini-select" title="Filter by folder">
-        <option value="all">📁 All Folders</option>
+      <select id="folderFilterSelect" class="mini-select" title="Filter by folder" aria-label="Filter by folder">
+        <option value="all">All folders</option>
       </select>
-      <button id="sortToggleBtn" class="sort-btn" title="Toggle Priority High to Low">
+      <button id="sortToggleBtn" class="sort-btn" title="Toggle priority order" aria-label="Toggle priority order">
         ↓ Priority
       </button>
     </div>
   </div>
 
-  <main id="taskList" class="task-list">
+  <main id="taskList" class="task-list" aria-label="Tasks">
   </main>
 
   <!-- Inline Task Detail & Edit Drawer -->
-  <div id="detailDrawer" class="detail-drawer hidden">
+  <div id="detailDrawer" class="detail-drawer hidden" role="dialog" aria-modal="true" aria-labelledby="detailTitleLabel">
     <div class="detail-header">
-      <span class="detail-title-label">Task Details</span>
-      <button id="closeDetailBtn" class="icon-btn">✕</button>
+      <span class="detail-title-label" id="detailTitleLabel">Task details</span>
+      <button id="closeDetailBtn" class="icon-btn" aria-label="Close task details">✕</button>
     </div>
     <div class="detail-body">
-      <label class="form-label">Task Title</label>
+      <label class="form-label" for="editTaskTitle">Task title</label>
       <input type="text" id="editTaskTitle" class="form-input">
 
-      <label class="form-label">Priority (High to Low)</label>
-      <div class="priority-chips">
+      <span class="form-label" id="priorityLabel">Priority</span>
+      <div class="priority-chips" role="group" aria-labelledby="priorityLabel">
         <button type="button" class="chip" data-p="urgent">Urgent</button>
         <button type="button" class="chip" data-p="high">High</button>
         <button type="button" class="chip" data-p="medium">Medium</button>
         <button type="button" class="chip" data-p="low">Low</button>
       </div>
 
-      <label class="form-label">Folder / Type</label>
+      <label class="form-label" for="editTaskFolder">Folder</label>
       <select id="editTaskFolder" class="form-input">
-        <option value="default_my_tasks">📁 General</option>
-        <option value="default_work">📁 Work & Projects</option>
-        <option value="default_personal">📁 Personal</option>
-        <option value="default_urgent">📁 Urgent & Critical</option>
+        <option value="default_my_tasks">General</option>
+        <option value="default_work">Work & Projects</option>
+        <option value="default_personal">Personal</option>
+        <option value="default_urgent">Urgent & Critical</option>
       </select>
 
-      <label class="form-label">Due Date</label>
+      <label class="form-label" for="editTaskDue">Due date</label>
       <input type="date" id="editTaskDue" class="form-input">
 
-      <label class="form-label">Notes</label>
+      <label class="form-label" for="editTaskNotes">Notes</label>
       <textarea id="editTaskNotes" rows="3" class="form-input" placeholder="Add notes..."></textarea>
     </div>
     <div class="detail-footer">
@@ -1460,7 +1946,7 @@ export const exportExtensionAsZip = async (clientId?: string): Promise<void> => 
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'chronotask-extension-v1.2.0.zip';
+  a.download = 'chronotask-extension-v1.3.0.zip';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

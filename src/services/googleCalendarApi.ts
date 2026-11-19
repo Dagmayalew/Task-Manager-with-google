@@ -19,20 +19,26 @@ export const googleCalendarService = {
     url.searchParams.set('orderBy', 'startTime');
     url.searchParams.set('maxResults', '100');
 
-    const response = await fetch(url.toString(), {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    const items: any[] = [];
+    let pageToken: string | undefined;
+    do {
+      if (pageToken) url.searchParams.set('pageToken', pageToken);
+      const response = await fetch(url.toString(), {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-    if (!response.ok) {
-      const err = await response.text();
-      throw new Error(`Failed to fetch Calendar events: ${response.status} ${err}`);
-    }
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`Failed to fetch Calendar events: ${response.status} ${err}`);
+      }
 
-    const data = await response.json();
-    const items = data.items || [];
+      const data = await response.json();
+      items.push(...(data.items || []));
+      pageToken = data.nextPageToken;
+    } while (pageToken);
 
     return items.map((item: any): CalendarEvent => ({
       id: item.id,

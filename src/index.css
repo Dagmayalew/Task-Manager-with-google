@@ -1,31 +1,122 @@
 @import "tailwindcss";
 
+/* Class-based dark mode: the app toggles `.dark` on <html>, so the
+   preference must not depend on the OS color-scheme media query. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-subtle: var(--subtle);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warn: var(--warn);
+  --color-ok: var(--ok);
+
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-serif: 'Newsreader', 'Iowan Old Style', Georgia, serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+}
+
+:root {
+  --paper: #f7f6f2;
+  --surface: #ffffff;
+  --subtle: #efeee8;
+  --ink: #17191a;
+  --ink-2: #5b5f61;
+  --ink-3: #6d7172;
+  --line: #e3e1d9;
+  --line-strong: #cbc8bd;
+  --accent: #1e4fd8;
+  --accent-ink: #ffffff;
+  --accent-soft: #edf1fe;
+  --danger: #b42318;
+  --danger-soft: #fdf1ef;
+  --warn: #b54708;
+  --ok: #067647;
+  color-scheme: light;
+}
+
+.dark {
+  --paper: #101112;
+  --surface: #181a1b;
+  --subtle: #202324;
+  --ink: #f1f0ea;
+  --ink-2: #a7aaa9;
+  --ink-3: #8b8f8e;
+  --line: #2a2d2e;
+  --line-strong: #3d4142;
+  --accent: #7ca0ff;
+  --accent-ink: #0b1020;
+  --accent-soft: #1a2338;
+  --danger: #ff8a80;
+  --danger-soft: #2a1615;
+  --warn: #f5b26b;
+  --ok: #6fd3a3;
+  color-scheme: dark;
+}
+
 @layer base {
-  :root {
-    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  html,
+  body {
+    height: 100%;
   }
 
   body {
     font-family: var(--font-sans);
+    background-color: var(--paper);
+    color: var(--ink);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
 
-  /* European Architectural Hairline Scrollbars */
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* Hairline scrollbars, tuned per theme */
   ::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
+    width: 8px;
+    height: 8px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(140, 140, 140, 0.25);
-    border-radius: 2px;
+    background: color-mix(in srgb, var(--ink-3) 28%, transparent);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(140, 140, 140, 0.45);
+    background: color-mix(in srgb, var(--ink-3) 48%, transparent);
+    background-clip: content-box;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
   }
 }

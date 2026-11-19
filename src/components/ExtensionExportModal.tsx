@@ -21,16 +21,16 @@ export const ExtensionExportModal: React.FC<ExtensionExportModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  if (!isOpen) return null;
-
-  const clientId = firebaseConfig.oAuthClientId || '';
-  const files: ExtensionFile[] = generateExtensionFiles(clientId);
-
   const [activeTab, setActiveTab] = useState<'store_answers' | 'files' | 'local_install' | 'extension_auth'>('store_answers');
   const [activeFileIndex, setActiveFileIndex] = useState(0);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isZipping, setIsZipping] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
+
+  if (!isOpen) return null;
+
+  const clientId = firebaseConfig.oAuthClientId || '';
+  const files: ExtensionFile[] = generateExtensionFiles(clientId);
 
   // Public production HTTPS URL on Vercel
   const vercelAppUrl = 'https://task-manager-with-google.vercel.app';
@@ -63,11 +63,11 @@ export const ExtensionExportModal: React.FC<ExtensionExportModalProps> = ({
     },
     {
       id: 'version_info',
-      title: 'Package Version 1.2.0 (Live Compatible Update with Sync Bridge)',
+      title: 'Package Version 1.3.0 (Security Hardening & Refresh)',
       location: 'Package tab → Upload New Package',
-      requiredFor: 'Version 1.2.0 Release Update',
-      value: 'chronotask-extension-v1.2.0.zip',
-      instruction: 'Upload the v1.2.0 ZIP file. 100% backwards-compatible with version 1 data. Adds Content Script Sync Bridge (content.js) so tasks, folders/lists, and Google authentication sync automatically with your Vercel deployment (https://task-manager-with-google.vercel.app).'
+      requiredFor: 'Version 1.3.0 Release Update',
+      value: 'chronotask-extension-v1.3.0.zip',
+      instruction: 'Upload the v1.3.0 ZIP file. Increments published version 1.2.0. Adds security hardening (strict origin-scoped host permissions, DOM XSS entity escaping, strict tab matching, and bi-directional sync validation), editorial dark mode, keyboard shortcuts, and full Google Tasks sync with https://task-manager-with-google.vercel.app.'
     },
     {
       id: 'single_purpose',
@@ -129,38 +129,38 @@ export const ExtensionExportModal: React.FC<ExtensionExportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/30 backdrop-blur-xs animate-in fade-in duration-100">
       <div 
-        className="w-full max-w-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg shadow-xl p-5 text-neutral-900 dark:text-neutral-100 max-h-[92vh] flex flex-col overflow-hidden"
+        className="w-full max-w-3xl bg-surface border border-line rounded-md p-5 text-ink max-h-[92vh] flex flex-col overflow-hidden"
         role="dialog"
       >
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-neutral-200/80 dark:border-neutral-800/80">
+        <div className="flex items-center justify-between pb-3 border-b border-line">
           <div>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-neutral-400">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">
               Chrome Web Store · Deployment & Submission
             </span>
-            <h2 className="text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">
+            <h2 className="text-sm font-semibold tracking-tight text-ink">
               Extension Release & Publishing Guide
             </h2>
           </div>
 
           <button
             onClick={onClose}
-            className="text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 p-1"
+            className="text-ink-3 hover:text-ink p-1"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* View Mode Tabs */}
-        <div className="flex items-center gap-1 border-b border-neutral-200/80 dark:border-neutral-800/80 pt-2 pb-2">
+        <div className="flex items-center gap-1 border-b border-line pt-2 pb-2">
           <button
             onClick={() => setActiveTab('store_answers')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition ${
               activeTab === 'store_answers'
-                ? 'bg-blue-600 text-white'
-                : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                ? 'bg-ink text-paper'
+                : 'text-ink-2 hover:text-ink hover:bg-subtle'
             }`}
           >
             <ShieldCheck className="w-3.5 h-3.5" />
@@ -171,8 +171,8 @@ export const ExtensionExportModal: React.FC<ExtensionExportModalProps> = ({
             onClick={() => setActiveTab('local_install')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition ${
               activeTab === 'local_install'
-                ? 'bg-blue-600 text-white'
-                : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                ? 'bg-ink text-paper'
+                : 'text-ink-2 hover:text-ink hover:bg-subtle'
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
@@ -183,8 +183,8 @@ export const ExtensionExportModal: React.FC<ExtensionExportModalProps> = ({
             onClick={() => setActiveTab('extension_auth')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition ${
               activeTab === 'extension_auth'
-                ? 'bg-blue-600 text-white'
-                : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                ? 'bg-ink text-paper'
+                : 'text-ink-2 hover:text-ink hover:bg-subtle'
             }`}
           >
             <ExternalLink className="w-3.5 h-3.5" />
@@ -195,8 +195,8 @@ export const ExtensionExportModal: React.FC<ExtensionExportModalProps> = ({
             onClick={() => setActiveTab('files')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition ${
               activeTab === 'files'
-                ? 'bg-blue-600 text-white'
-                : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                ? 'bg-ink text-paper'
+                : 'text-ink-2 hover:text-ink hover:bg-subtle'
             }`}
           >
             <FileCode className="w-3.5 h-3.5" />
@@ -209,19 +209,19 @@ export const ExtensionExportModal: React.FC<ExtensionExportModalProps> = ({
           {activeTab === 'store_answers' && (
             <div className="space-y-4">
               {/* Alert explaining why preview URL is unreachable */}
-              <div className="p-3.5 bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-900/50 rounded-md text-xs space-y-2">
-                <div className="flex items-center gap-2 text-rose-700 dark:text-rose-400 font-semibold">
+              <div className="p-3.5 bg-danger-soft border border-line rounded-md text-xs space-y-2">
+                <div className="flex items-center gap-2 text-danger font-semibold">
                   <span>Why Chrome says: "Privacy policy link is not reachable"</span>
                 </div>
-                <p className="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+                <p className="text-ink-2 leading-relaxed">
                   The AI Studio preview domain requires your personal Google login. Because Chrome Web Store’s automated crawler does not have your login cookie, it receives a redirect when testing the link.
                 </p>
-                <div className="p-2.5 bg-white dark:bg-neutral-900 border border-rose-200/60 dark:border-rose-900/40 rounded text-xs space-y-1.5">
-                  <span className="font-semibold text-neutral-900 dark:text-neutral-100 block">
+                <div className="p-2.5 bg-surface border border-line rounded text-xs space-y-1.5">
+                  <span className="font-semibold text-ink block">
                     Fastest 1-Minute Fix (Accepted by Google):
                   </span>
-                  <ol className="list-decimal pl-4 space-y-1 text-neutral-600 dark:text-neutral-400">
-                    <li>Create a new doc at <a href="https://docs.google.com/document/create" target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 underline">docs.google.com</a>.</li>
+                  <ol className="list-decimal pl-4 space-y-1 text-ink-2">
+                    <li>Create a new doc at <a href="https://docs.google.com/document/create" target="_blank" rel="noreferrer" className="text-accent underline">docs.google.com</a>.</li>
                     <li>Click the button below to copy the complete policy text and paste it into the doc.</li>
                     <li>In Google Docs, click <strong>File → Share → Publish to web → Publish</strong>.</li>
                     <li>Copy that published URL and paste it into the Chrome Web Store.</li>
@@ -242,6 +242,7 @@ Chronotask is designed with an offline-first architecture prioritizing user priv
 Chronotask requests only the minimum necessary permissions in compliance with Chrome Web Store Minimal Permissions policy:
 - Storage API (storage): Used to cache your task lists, tasks, and settings locally on your device for offline productivity.
 - Side Panel API (sidePanel): Used to allow docking the task manager alongside web pages in Google Chrome for personal note-taking.
+- Host Permission (https://task-manager-with-google.vercel.app/*): Used solely to synchronize your personal tasks between the extension and the official Chronotask web application dashboard. No other domains or browsing activities are accessed.
 
 3. How We Use and Store Data
 - Local Storage: All tasks and settings are stored locally on your device.
@@ -264,7 +265,7 @@ We certify that our collection and use of user data strictly complies with the C
 Developer Contact: dagmayalew489@gmail.com`;
                       handleCopyText(fullPolicy, 'full_policy_doc');
                     }}
-                    className="mt-1 flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition"
+                    className="mt-1 flex items-center gap-1.5 px-3 py-1.5 bg-ink hover:bg-accent text-paper hover:text-accent-ink rounded text-xs font-medium transition"
                   >
                     {copiedField === 'full_policy_doc' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                     <span>{copiedField === 'full_policy_doc' ? 'Copied Full Policy!' : 'Copy Policy Text for Google Docs / Gist'}</span>
@@ -275,26 +276,26 @@ Developer Contact: dagmayalew489@gmail.com`;
               {storeFields.map((field) => (
                 <div 
                   key={field.id}
-                  className="border border-neutral-200 dark:border-neutral-800 rounded-md p-3 bg-neutral-50/40 dark:bg-neutral-950/40 space-y-1.5"
+                  className="border border-line rounded-md p-3 bg-subtle/60 space-y-1.5"
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100">
+                      <span className="text-xs font-semibold text-ink">
                         {field.title}
                       </span>
-                      <span className="font-mono text-[10px] text-neutral-400 ml-2">
+                      <span className="font-mono text-[10px] text-ink-3 ml-2">
                         · {field.location}
                       </span>
                     </div>
 
                     <button
                       onClick={() => handleCopyText(field.value, field.id)}
-                      className="flex items-center gap-1 px-2.5 py-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded text-xs font-mono text-neutral-700 dark:text-neutral-300 hover:border-blue-600 hover:text-blue-600 transition"
+                      className="flex items-center gap-1 px-2.5 py-1 bg-surface border border-line rounded text-xs font-mono text-ink-2 hover:border-ink hover:text-accent transition"
                     >
                       {copiedField === field.id ? (
                         <>
-                          <Check className="w-3.5 h-3.5 text-blue-600" />
-                          <span className="text-blue-600 font-semibold">Copied</span>
+                          <Check className="w-3.5 h-3.5 text-accent" />
+                          <span className="text-accent font-semibold">Copied</span>
                         </>
                       ) : (
                         <>
@@ -305,11 +306,11 @@ Developer Contact: dagmayalew489@gmail.com`;
                     </button>
                   </div>
 
-                  <p className="text-[11px] text-neutral-500 font-mono">
-                    Fixes error: <span className="text-rose-600 dark:text-rose-400">"{field.requiredFor}"</span>
+                  <p className="text-[11px] text-ink-2 font-mono">
+                    Fixes error: <span className="text-danger">"{field.requiredFor}"</span>
                   </p>
 
-                  <div className="p-2 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded text-xs font-mono select-all text-neutral-800 dark:text-neutral-200 break-all leading-relaxed">
+                  <div className="p-2 bg-surface border border-line rounded text-xs font-mono select-all text-ink break-all leading-relaxed">
                     {field.value}
                   </div>
 
@@ -319,7 +320,7 @@ Developer Contact: dagmayalew489@gmail.com`;
                         href={field.value} 
                         target="_blank" 
                         rel="noreferrer"
-                        className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
+                        className="text-[11px] text-accent hover:underline inline-flex items-center gap-1"
                       >
                         <ExternalLink className="w-3 h-3" />
                         <span>Open & test live privacy policy page</span>
@@ -333,36 +334,36 @@ Developer Contact: dagmayalew489@gmail.com`;
 
           {activeTab === 'local_install' && (
             <div className="space-y-4">
-              <div className="border border-neutral-200 dark:border-neutral-800 rounded-md p-3.5 bg-neutral-50/60 dark:bg-neutral-950/60">
-                <span className="font-mono text-[10px] uppercase tracking-wider text-neutral-400 block mb-2">
+              <div className="border border-line rounded-md p-3.5 bg-subtle/60">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3 block mb-2">
                   Installation Procedure
                 </span>
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 text-xs text-neutral-600 dark:text-neutral-400">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 text-xs text-ink-2">
                   <div>
-                    <span className="font-mono text-[10px] text-blue-600 dark:text-blue-400 font-semibold block mb-0.5">01. DOWNLOAD</span>
+                    <span className="font-mono text-[10px] text-accent font-semibold block mb-0.5">01. DOWNLOAD</span>
                     <p>Click "Download Extension ZIP" and extract the folder.</p>
                   </div>
                   <div>
-                    <span className="font-mono text-[10px] text-blue-600 dark:text-blue-400 font-semibold block mb-0.5">02. EXTENSIONS</span>
-                    <p>Open <code className="font-mono text-[11px] text-neutral-900 dark:text-neutral-200">chrome://extensions</code> in Chrome.</p>
+                    <span className="font-mono text-[10px] text-accent font-semibold block mb-0.5">02. EXTENSIONS</span>
+                    <p>Open <code className="font-mono text-[11px] text-ink">chrome://extensions</code> in Chrome.</p>
                   </div>
                   <div>
-                    <span className="font-mono text-[10px] text-blue-600 dark:text-blue-400 font-semibold block mb-0.5">03. DEV MODE</span>
+                    <span className="font-mono text-[10px] text-accent font-semibold block mb-0.5">03. DEV MODE</span>
                     <p>Turn on "Developer mode" in the top-right corner.</p>
                   </div>
                   <div>
-                    <span className="font-mono text-[10px] text-blue-600 dark:text-blue-400 font-semibold block mb-0.5">04. LOAD</span>
+                    <span className="font-mono text-[10px] text-accent font-semibold block mb-0.5">04. LOAD</span>
                     <p>Click "Load unpacked" and select the folder.</p>
                   </div>
                 </div>
               </div>
 
-              <div className="border border-neutral-200 dark:border-neutral-800 rounded-md p-3 text-xs text-neutral-600 dark:text-neutral-400 space-y-2">
-                <span className="font-semibold text-neutral-900 dark:text-neutral-200 block">Keyboard Shortcuts & Features</span>
+              <div className="border border-line rounded-md p-3 text-xs text-ink-2 space-y-2">
+                <span className="font-semibold text-ink block">Keyboard Shortcuts & Features</span>
                 <ul className="list-disc pl-4 space-y-1">
-                  <li><strong className="text-neutral-800 dark:text-neutral-200">Ctrl+Shift+T / Cmd+Shift+T:</strong> Instantly opens the Chronotask popup from any browser tab.</li>
-                  <li><strong className="text-neutral-800 dark:text-neutral-200">Side Panel:</strong> Click "Dock to Side Panel" in the popup to keep tasks visible while you browse.</li>
-                  <li><strong className="text-neutral-800 dark:text-neutral-200">Today's Badge:</strong> The red badge count reflects tasks scheduled for today.</li>
+                  <li><strong className="text-ink">Ctrl+Shift+T / Cmd+Shift+T:</strong> Instantly opens the Chronotask popup from any browser tab.</li>
+                  <li><strong className="text-ink">Side Panel:</strong> Click "Dock to Side Panel" in the popup to keep tasks visible while you browse.</li>
+                  <li><strong className="text-ink">Today's Badge:</strong> The red badge count reflects tasks scheduled for today.</li>
                 </ul>
               </div>
             </div>
@@ -370,54 +371,54 @@ Developer Contact: dagmayalew489@gmail.com`;
 
           {activeTab === 'extension_auth' && (
             <div className="space-y-4 text-xs">
-              <div className="border border-blue-200 dark:border-blue-900/60 bg-blue-50/50 dark:bg-blue-950/20 rounded-md p-4 space-y-2">
-                <h3 className="font-bold text-sm text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-                  <span className="text-blue-600">Why does Google Sign-In not open inside the extension popup?</span>
+              <div className="border border-line bg-accent-soft rounded-md p-4 space-y-2">
+                <h3 className="font-bold text-sm text-ink flex items-center gap-2">
+                  <span className="text-accent">Why does Google Sign-In not open inside the extension popup?</span>
                 </h3>
-                <p className="text-neutral-700 dark:text-neutral-300 leading-relaxed">
-                  Google Chrome extensions run on a sandboxed <code className="font-mono bg-blue-100 dark:bg-blue-900/40 px-1 py-0.5 rounded text-[11px]">chrome-extension://</code> internal protocol. Google OAuth 2.0 and Firebase Authentication security standards strictly restrict web popup authentication to registered, verified HTTP/HTTPS origins.
+                <p className="text-ink-2 leading-relaxed">
+                  Google Chrome extensions run on a sandboxed <code className="font-mono bg-accent-soft px-1 py-0.5 rounded text-[11px]">chrome-extension://</code> internal protocol. Google OAuth 2.0 and Firebase Authentication security standards strictly restrict web popup authentication to registered, verified HTTP/HTTPS origins.
                 </p>
-                <p className="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+                <p className="text-ink-2 leading-relaxed">
                   Additionally, Chrome automatically closes any extension popup the moment focus moves to another window (such as an OAuth consent screen), immediately terminating any in-progress sign-in attempts.
                 </p>
               </div>
 
-              <div className="border border-neutral-200 dark:border-neutral-800 rounded-md p-4 space-y-3 bg-neutral-50/40 dark:bg-neutral-950/40">
-                <h4 className="font-semibold text-xs uppercase tracking-wider font-mono text-neutral-800 dark:text-neutral-200">
-                  How Vercel Web App & Extension Real-Time Sync Works (v1.2.0):
+              <div className="border border-line rounded-md p-4 space-y-3 bg-subtle/60">
+                <h4 className="font-semibold text-xs uppercase tracking-wider font-mono text-ink">
+                  How Vercel Web App & Extension Real-Time Sync Works (v1.3.0):
                 </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="p-3 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded">
-                    <span className="font-mono text-[10px] text-blue-600 font-bold block mb-1">STEP 1</span>
-                    <p className="font-medium text-neutral-900 dark:text-neutral-100 mb-1">Open Vercel App</p>
-                    <p className="text-neutral-500 text-[11px]">Click "Open Full Dashboard" (<ExternalLink className="w-2.5 h-2.5 inline" />) in popup to open <code className="font-mono text-[10px]">task-manager-with-google.vercel.app</code>.</p>
+                  <div className="p-3 bg-surface border border-line rounded">
+                    <span className="font-mono text-[10px] text-accent font-bold block mb-1">STEP 1</span>
+                    <p className="font-medium text-ink mb-1">Open Vercel App</p>
+                    <p className="text-ink-2 text-[11px]">Click "Open Full Dashboard" (<ExternalLink className="w-2.5 h-2.5 inline" />) in popup to open <code className="font-mono text-[10px]">task-manager-with-google.vercel.app</code>.</p>
                   </div>
 
-                  <div className="p-3 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded">
-                    <span className="font-mono text-[10px] text-blue-600 font-bold block mb-1">STEP 2</span>
-                    <p className="font-medium text-neutral-900 dark:text-neutral-100 mb-1">Sign In with Google</p>
-                    <p className="text-neutral-500 text-[11px]">Click "Sign In with Google" on Vercel. Google Tasks and Calendar events are fetched live.</p>
+                  <div className="p-3 bg-surface border border-line rounded">
+                    <span className="font-mono text-[10px] text-accent font-bold block mb-1">STEP 2</span>
+                    <p className="font-medium text-ink mb-1">Sign In with Google</p>
+                    <p className="text-ink-2 text-[11px]">Click "Sign In with Google" on Vercel. Google Tasks and Calendar events are fetched live.</p>
                   </div>
 
-                  <div className="p-3 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded">
-                    <span className="font-mono text-[10px] text-blue-600 font-bold block mb-1">STEP 3</span>
-                    <p className="font-medium text-neutral-900 dark:text-neutral-100 mb-1">Automatic Content Bridge</p>
-                    <p className="text-neutral-500 text-[11px]"><code className="font-mono text-[10px]">content.js</code> automatically bridges tasks and auth into extension <code className="font-mono text-[10px]">chrome.storage.local</code> in real time!</p>
+                  <div className="p-3 bg-surface border border-line rounded">
+                    <span className="font-mono text-[10px] text-accent font-bold block mb-1">STEP 3</span>
+                    <p className="font-medium text-ink mb-1">Automatic Content Bridge</p>
+                    <p className="text-ink-2 text-[11px]"><code className="font-mono text-[10px]">content.js</code> automatically bridges tasks and auth into extension <code className="font-mono text-[10px]">chrome.storage.local</code> in real time!</p>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between p-3 border border-neutral-200 dark:border-neutral-800 rounded bg-white dark:bg-neutral-900">
+              <div className="flex items-center justify-between p-3 border border-line rounded bg-surface">
                 <div>
-                  <span className="font-semibold text-neutral-900 dark:text-neutral-100 block">Web Dashboard Link:</span>
-                  <span className="font-mono text-[11px] text-neutral-500">{hostedPrivacyUrl.replace('/privacy.html', '')}</span>
+                  <span className="font-semibold text-ink block">Web Dashboard Link:</span>
+                  <span className="font-mono text-[11px] text-ink-2">{hostedPrivacyUrl.replace('/privacy.html', '')}</span>
                 </div>
                 <a
                   href={hostedPrivacyUrl.replace('/privacy.html', '')}
                   target="_blank"
                   rel="noreferrer"
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold flex items-center gap-1.5 transition"
+                  className="px-3 py-1.5 bg-ink hover:bg-accent text-paper hover:text-accent-ink rounded text-xs font-semibold flex items-center gap-1.5 transition"
                 >
                   <span>Launch Web App</span>
                   <ExternalLink className="w-3.5 h-3.5" />
@@ -436,8 +437,8 @@ Developer Contact: dagmayalew489@gmail.com`;
                       onClick={() => setActiveFileIndex(idx)}
                       className={`px-2.5 py-1 rounded text-xs font-mono transition-colors shrink-0 flex items-center gap-1.5 ${
                         activeFileIndex === idx
-                          ? 'bg-blue-600 text-white font-medium'
-                          : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                          ? 'bg-ink text-paper font-medium'
+                          : 'text-ink-2 hover:text-ink hover:bg-subtle'
                       }`}
                     >
                       <FileCode className="w-3.5 h-3.5" />
@@ -449,14 +450,14 @@ Developer Contact: dagmayalew489@gmail.com`;
                 <div className="flex items-center gap-1.5 shrink-0 ml-2">
                   <button
                     onClick={() => handleCopyText(currentFile.content, currentFile.name)}
-                    className="flex items-center gap-1 px-2.5 py-1 border border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 rounded text-xs hover:border-blue-600 hover:text-blue-600 transition"
+                    className="flex items-center gap-1 px-2.5 py-1 border border-line text-ink-2 rounded text-xs hover:border-ink hover:text-accent transition"
                   >
-                    {copiedField === currentFile.name ? <Check className="w-3.5 h-3.5 text-blue-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedField === currentFile.name ? <Check className="w-3.5 h-3.5 text-accent" /> : <Copy className="w-3.5 h-3.5" />}
                     <span>{copiedField === currentFile.name ? 'Copied' : 'Copy'}</span>
                   </button>
                   <button
                     onClick={() => handleDownloadFile(currentFile)}
-                    className="flex items-center gap-1 px-2.5 py-1 border border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 rounded text-xs hover:border-blue-600 hover:text-blue-600 transition"
+                    className="flex items-center gap-1 px-2.5 py-1 border border-line text-ink-2 rounded text-xs hover:border-ink hover:text-accent transition"
                   >
                     <Download className="w-3.5 h-3.5" />
                     <span>File</span>
@@ -465,7 +466,7 @@ Developer Contact: dagmayalew489@gmail.com`;
               </div>
 
               {/* Code preview */}
-              <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-md p-3.5 font-mono text-[11px] text-neutral-800 dark:text-neutral-300 max-h-60 overflow-y-auto leading-relaxed select-text">
+              <div className="bg-subtle border border-line rounded-md p-3.5 font-mono text-[11px] text-ink max-h-60 overflow-y-auto leading-relaxed select-text">
                 <pre>{currentFile.content}</pre>
               </div>
             </div>
@@ -473,10 +474,10 @@ Developer Contact: dagmayalew489@gmail.com`;
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between pt-3 border-t border-neutral-200/80 dark:border-neutral-800/80">
-          <span className="text-xs font-mono text-neutral-400">
+        <div className="flex items-center justify-between pt-3 border-t border-line">
+          <span className="text-xs font-mono text-ink-3">
             {downloadSuccess ? (
-              <span className="text-blue-600 dark:text-blue-400 font-medium">✓ ZIP downloaded.</span>
+              <span className="text-accent font-medium">✓ ZIP downloaded.</span>
             ) : isZipping ? (
               'Generating ZIP bundle...'
             ) : (
@@ -487,14 +488,14 @@ Developer Contact: dagmayalew489@gmail.com`;
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="px-3 py-1.5 text-xs text-neutral-600 dark:text-neutral-400 hover:text-neutral-900"
+              className="px-3 py-1.5 text-xs text-ink-2 hover:text-ink"
             >
               Close
             </button>
             <button
               onClick={handleDownloadZip}
               disabled={isZipping}
-              className="flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-md transition shadow-2xs"
+              className="flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold text-paper bg-ink hover:bg-accent disabled:opacity-50 rounded-md transition shadow-2xs"
             >
               <Download className="w-3.5 h-3.5" />
               <span>{isZipping ? 'Bundling...' : 'Download Extension ZIP'}</span>

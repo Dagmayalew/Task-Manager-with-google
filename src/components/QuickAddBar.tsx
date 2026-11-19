@@ -1,10 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Plus, 
-  Calendar, 
-  Clock, 
-  CalendarDays
-} from 'lucide-react';
+import { Plus, Calendar, Clock, CalendarDays, CornerDownLeft } from 'lucide-react';
 import { Priority, TaskList } from '../types';
 
 interface QuickAddBarProps {
@@ -31,7 +26,9 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
 }) => {
   const [title, setTitle] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
-  const [selectedListId, setSelectedListId] = useState(activeListId === 'all' ? (lists[0]?.id || 'default_my_tasks') : activeListId);
+  const [selectedListId, setSelectedListId] = useState(
+    activeListId === 'all' ? lists[0]?.id || 'default_my_tasks' : activeListId
+  );
   const [priority, setPriority] = useState<Priority>('medium');
   const [dueDate, setDueDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [dueTime, setDueTime] = useState<string>('');
@@ -42,7 +39,7 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
   useEffect(() => {
     if (activeListId !== 'all') {
       setSelectedListId(activeListId);
-    } else if (lists.length > 0 && !lists.some(l => l.id === selectedListId)) {
+    } else if (lists.length > 0 && !lists.some((l) => l.id === selectedListId)) {
       setSelectedListId(lists[0].id);
     }
   }, [activeListId, lists]);
@@ -76,102 +73,115 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
     setTitle('');
     setDueTime('');
     setScheduleToCalendar(false);
+    inputRef.current?.focus();
   };
 
+  const fieldClass =
+    'flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[11.5px] text-ink-2 transition-colors hover:bg-subtle';
+  const selectClass =
+    'cursor-pointer bg-transparent text-[11.5px] font-medium text-ink outline-none';
+  const labelClass =
+    'font-mono text-[9px] uppercase tracking-[0.1em] text-ink-3';
+
   return (
-    <div className="border border-neutral-200/80 dark:border-neutral-800/80 focus-within:border-blue-600 dark:focus-within:border-blue-500 bg-white dark:bg-neutral-900 rounded-lg p-3 transition-colors shadow-2xs">
+    <div className="rounded-xl border border-line bg-surface shadow-[0_1px_2px_rgba(20,20,20,0.04)] transition-all focus-within:border-line-strong focus-within:shadow-[0_2px_12px_-4px_rgba(20,20,20,0.12)]">
       <form onSubmit={handleSubmit}>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <Plus className="h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
           <input
             ref={inputRef}
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onFocus={() => setIsExpanded(true)}
-            placeholder="Add new task... (Press Enter to save, ⌘K)"
-            className="flex-1 bg-transparent text-sm text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-600 outline-none font-sans"
+            placeholder="Add a task…"
+            aria-label="New task title"
+            className="min-w-0 flex-1 bg-transparent text-[14px] font-medium text-ink outline-none placeholder:font-normal placeholder:text-ink-3"
           />
+          <span className="hidden items-center gap-1 rounded border border-line px-1.5 py-0.5 font-mono text-[10px] text-ink-3 sm:flex">
+            <CornerDownLeft className="h-2.5 w-2.5" />
+            Enter
+          </span>
           <button
             type="submit"
             disabled={!title.trim()}
-            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-md transition disabled:opacity-30 disabled:cursor-not-allowed shrink-0 shadow-2xs cursor-pointer"
+            className="shrink-0 rounded-md bg-ink px-3 py-1.5 text-[11.5px] font-semibold text-paper transition-opacity disabled:cursor-not-allowed disabled:opacity-30"
           >
-            Add Task
+            Add task
           </button>
         </div>
 
-        {/* Minimalist Options Drawer */}
         {isExpanded && (
-          <div className="mt-3 pt-2.5 border-t border-neutral-100 dark:border-neutral-800/80 flex flex-wrap items-center gap-3 text-xs text-neutral-600 dark:text-neutral-400">
-            {/* Folder selector */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-neutral-400 font-mono text-[10px] uppercase">Folder:</span>
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-1.5 border-t border-line px-3 py-2">
+            <label className={fieldClass}>
+              <span className={labelClass}>List</span>
               <select
                 value={selectedListId}
                 onChange={(e) => setSelectedListId(e.target.value)}
-                className="bg-transparent text-neutral-800 dark:text-neutral-200 outline-none cursor-pointer text-xs"
+                className={`${selectClass} max-w-[130px]`}
+                aria-label="Task list"
               >
                 {lists.map((list) => (
-                  <option key={list.id} value={list.id} className="bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200">
-                    📁 {list.title}
+                  <option key={list.id} value={list.id}>
+                    {list.title}
                   </option>
                 ))}
               </select>
-            </div>
+            </label>
 
-            {/* Due Date */}
-            <div className="flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-neutral-400" />
+            <label className={fieldClass}>
+              <Calendar className="h-3.5 w-3.5 text-ink-3" />
               <input
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="bg-transparent text-neutral-800 dark:text-neutral-200 outline-none text-xs font-mono"
+                className={`${selectClass} font-mono text-[11px]`}
+                aria-label="Due date"
               />
-            </div>
+            </label>
 
-            {/* Due Time */}
-            <div className="flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-neutral-400" />
+            <label className={fieldClass}>
+              <Clock className="h-3.5 w-3.5 text-ink-3" />
               <input
                 type="time"
                 value={dueTime}
                 onChange={(e) => setDueTime(e.target.value)}
-                className="bg-transparent text-neutral-800 dark:text-neutral-200 outline-none text-xs font-mono"
+                className={`${selectClass} font-mono text-[11px]`}
+                aria-label="Due time"
               />
-            </div>
+            </label>
 
-            {/* Priority */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-neutral-400 font-mono text-[10px] uppercase">Priority:</span>
+            <label className={fieldClass}>
+              <span className={labelClass}>Priority</span>
               <select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value as Priority)}
-                className="bg-transparent outline-none cursor-pointer text-xs font-medium text-neutral-800 dark:text-neutral-200"
+                className={selectClass}
+                aria-label="Priority"
               >
-                <option value="low" className="bg-white dark:bg-neutral-900">Low</option>
-                <option value="medium" className="bg-white dark:bg-neutral-900">Medium</option>
-                <option value="high" className="bg-white dark:bg-neutral-900">High</option>
-                <option value="urgent" className="bg-white dark:bg-neutral-900">Urgent</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
               </select>
-            </div>
+            </label>
 
-            {/* Block on Google Calendar */}
-            <label className="flex items-center gap-1.5 cursor-pointer select-none ml-auto">
+            <label className="ml-auto flex cursor-pointer select-none items-center gap-1.5 rounded-md px-1.5 py-1 text-[11.5px] text-ink-2 transition-colors hover:bg-subtle">
               <input
                 type="checkbox"
                 checked={scheduleToCalendar}
                 onChange={(e) => setScheduleToCalendar(e.target.checked)}
-                className="rounded-xs border-neutral-300 dark:border-neutral-700 accent-neutral-900 dark:accent-white"
+                className="h-3.5 w-3.5 rounded border-line accent-accent"
               />
-              <CalendarDays className="w-3.5 h-3.5 text-neutral-500" />
-              <span className="text-xs">Schedule on Calendar</span>
+              <CalendarDays className="h-3.5 w-3.5 text-ink-3" />
+              <span>Calendar block</span>
               {scheduleToCalendar && (
                 <select
                   value={calendarDuration}
                   onChange={(e) => setCalendarDuration(Number(e.target.value))}
                   onClick={(e) => e.stopPropagation()}
-                  className="bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 rounded px-1.5 py-0.5 text-[11px] ml-1 outline-none"
+                  className="ml-0.5 cursor-pointer rounded bg-subtle px-1.5 py-0.5 text-[10.5px] text-ink outline-none"
+                  aria-label="Calendar block duration"
                 >
                   <option value={15}>15m</option>
                   <option value={30}>30m</option>
@@ -181,6 +191,12 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
                 </select>
               )}
             </label>
+
+            {!hasGoogleCalendarAuth && scheduleToCalendar && (
+              <span className="w-full font-mono text-[9px] uppercase tracking-wide text-warn">
+                Sign in to block time on Google Calendar
+              </span>
+            )}
           </div>
         )}
       </form>

@@ -11,7 +11,8 @@ import {
   AlertCircle,
   CalendarPlus,
   CheckCircle2,
-  RefreshCw
+  RefreshCw,
+  Copy
 } from 'lucide-react';
 import { TaskItem, TaskList, Priority } from '../types';
 
@@ -22,6 +23,7 @@ interface TaskDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (updatedTask: TaskItem) => void;
+  onCopy?: (task: TaskItem) => void;
   onDelete: (id: string, title: string) => void;
   onCreateFolder?: (title: string) => void;
   onScheduleToCalendar: (task: TaskItem, startTime: string, durationMinutes: number) => void;
@@ -35,29 +37,31 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   isOpen,
   onClose,
   onSave,
+  onCopy,
   onDelete,
   onCreateFolder,
   onScheduleToCalendar,
   onRemoveFromCalendar,
 }) => {
-  if (!isOpen || !task) return null;
-
-  const [title, setTitle] = useState(task.title);
-  const [notes, setNotes] = useState(task.notes || '');
-  const [listId, setListId] = useState(task.folderId || task.listId);
-  const [priority, setPriority] = useState<Priority>(task.priority || 'medium');
-  const [due, setDue] = useState(task.due || '');
-  const [dueTime, setDueTime] = useState(task.dueTime || '');
-  const [starred, setStarred] = useState(task.starred || false);
-  const [completed, setCompleted] = useState(task.completed);
+  // Hooks must run on every render, so the closed-state guard comes after them.
+  const [title, setTitle] = useState(task?.title ?? '');
+  const [notes, setNotes] = useState(task?.notes ?? '');
+  const [listId, setListId] = useState(task?.folderId ?? task?.listId ?? '');
+  const [priority, setPriority] = useState<Priority>(task?.priority || 'medium');
+  const [due, setDue] = useState(task?.due ?? '');
+  const [dueTime, setDueTime] = useState(task?.dueTime ?? '');
+  const [starred, setStarred] = useState(task?.starred ?? false);
+  const [completed, setCompleted] = useState(task?.completed ?? false);
 
   // New folder inline creation
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
 
   // Calendar time block
-  const [calendarDate, setCalendarDate] = useState(task.due || new Date().toISOString().split('T')[0]);
-  const [calendarStartTime, setCalendarStartTime] = useState(task.dueTime || '10:00');
+  const [calendarDate, setCalendarDate] = useState(
+    task?.due ?? new Date().toISOString().split('T')[0]
+  );
+  const [calendarStartTime, setCalendarStartTime] = useState(task?.dueTime ?? '10:00');
   const [calendarDuration, setCalendarDuration] = useState<number>(30);
   const [saveFeedback, setSaveFeedback] = useState(false);
 
@@ -75,6 +79,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       setCalendarStartTime(task.dueTime || '10:00');
     }
   }, [task]);
+
+  if (!isOpen || !task) return null;
+
 
   const handleSave = () => {
     if (!title.trim()) return;
@@ -137,49 +144,52 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const currentFolder = lists.find(l => l.id === listId);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/45 p-4 backdrop-blur-sm animate-in fade-in duration-100">
       <div 
-        className="w-full max-w-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg shadow-2xl p-5 text-neutral-900 dark:text-neutral-100 max-h-[92vh] flex flex-col overflow-hidden"
+        className="flex max-h-[92vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-line bg-surface p-6 text-ink shadow-2xl"
         role="dialog"
         onKeyDown={handleKeyDown}
       >
         {/* Header */}
-        <div className="flex items-center justify-between pb-3.5 border-b border-neutral-200/80 dark:border-neutral-800/80">
-          <div className="flex items-center gap-2.5">
+        <div className="flex items-center justify-between border-b border-line pb-4">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => setCompleted(!completed)}
-              className={`w-5 h-5 rounded-xs border flex items-center justify-center transition cursor-pointer ${
+              className={`grid h-5 w-5 place-items-center rounded-[4px] border transition-colors ${
                 completed
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'border-neutral-300 dark:border-neutral-700 hover:border-blue-600 bg-transparent'
+                  ? 'border-accent bg-accent text-accent-ink'
+                  : 'border-line-strong bg-transparent hover:border-accent'
               }`}
               title={completed ? "Mark incomplete" : "Mark completed"}
             >
-              {completed && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
+              {completed && <Check className="w-3.5 h-3.5 stroke-[3]" />}
             </button>
             <div>
-              <span className="font-mono text-[10px] uppercase tracking-wider text-neutral-400 block">
-                {completed ? 'Completed Task' : 'Task Details & Management'}
+              <span className="block font-mono text-[9px] uppercase tracking-[0.16em] text-ink-3">
+                {completed ? 'Completed task' : 'Task details'}
               </span>
-              <span className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
-                {currentFolder ? `Folder: ${currentFolder.title}` : 'General'}
+              <span className="text-[12.5px] font-medium text-ink-2">
+                {currentFolder ? currentFolder.title : 'General'}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={() => setStarred(!starred)}
-              className="p-1 rounded transition text-neutral-400 hover:text-rose-600 cursor-pointer"
+              className={`grid h-8 w-8 place-items-center rounded-md transition-colors hover:bg-subtle ${
+                starred ? 'text-warn' : 'text-ink-3 hover:text-warn'
+              }`}
               title={starred ? "Remove star" : "Star task"}
             >
-              <Star className={`w-4 h-4 ${starred ? 'fill-rose-600 text-rose-600' : ''}`} />
+              <Star className={`w-4 h-4 ${starred ? 'fill-warn' : ''}`} />
             </button>
             <button
               onClick={onClose}
-              className="text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 p-1 cursor-pointer"
+              aria-label="Close"
+              className="grid h-8 w-8 place-items-center rounded-md text-ink-3 transition-colors hover:bg-subtle hover:text-ink"
             >
               <X className="w-4 h-4" />
             </button>
@@ -187,11 +197,11 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <div className="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
+        <div className="flex-1 space-y-4 overflow-y-auto py-5 pr-1">
           {/* Title Input */}
           <div>
-            <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1">
-              Task Title
+            <label className="mb-1.5 block font-mono text-[9px] uppercase tracking-[0.16em] text-ink-3">
+              Title
             </label>
             <input
               type="text"
@@ -199,170 +209,133 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               onChange={(e) => setTitle(e.target.value)}
               placeholder="What needs to be done?"
               autoFocus
-              className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-md px-3 py-2 text-sm font-medium text-neutral-900 dark:text-neutral-100 outline-none focus:border-blue-600 transition"
+              className="w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-[14px] font-medium text-ink outline-none transition-colors placeholder:font-normal placeholder:text-ink-3 focus:border-accent"
             />
           </div>
 
-          {/* Priority High to Low Selection */}
+          {/* Priority Selection */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-neutral-400">
-                Priority Level (High → Low)
+            <div className="mb-2 flex items-center justify-between">
+              <label className="font-mono text-[9px] uppercase tracking-[0.16em] text-ink-3">
+                Priority
               </label>
-              <span className="font-mono text-[10px] text-neutral-400">
-                Current: <strong className="uppercase">{priority}</strong>
+              <span className="font-mono text-[9px] uppercase tracking-wide text-ink-3">
+                {priority}
               </span>
             </div>
-            
-            <div className="grid grid-cols-4 gap-2">
-              <button
-                type="button"
-                onClick={() => setPriority('urgent')}
-                className={`py-1.5 px-2 rounded text-xs font-mono font-medium transition cursor-pointer flex items-center justify-center gap-1.5 border ${
-                  priority === 'urgent'
-                    ? 'bg-rose-600 text-white border-rose-600 shadow-2xs font-bold'
-                    : 'bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-rose-600 hover:text-rose-600'
-                }`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0" />
-                <span>Urgent</span>
-              </button>
 
-              <button
-                type="button"
-                onClick={() => setPriority('high')}
-                className={`py-1.5 px-2 rounded text-xs font-mono font-medium transition cursor-pointer flex items-center justify-center gap-1.5 border ${
-                  priority === 'high'
-                    ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-600 font-bold'
-                    : 'bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-rose-600 hover:text-rose-600'
-                }`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                <span>High</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setPriority('medium')}
-                className={`py-1.5 px-2 rounded text-xs font-mono font-medium transition cursor-pointer flex items-center justify-center gap-1.5 border ${
-                  priority === 'medium'
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-2xs font-bold'
-                    : 'bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-blue-600 hover:text-blue-600'
-                }`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
-                <span>Medium</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setPriority('low')}
-                className={`py-1.5 px-2 rounded text-xs font-mono font-medium transition cursor-pointer flex items-center justify-center gap-1.5 border ${
-                  priority === 'low'
-                    ? 'bg-neutral-200 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 border-neutral-400 font-bold'
-                    : 'bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 text-neutral-500 dark:text-neutral-400 hover:border-neutral-400'
-                }`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-neutral-400 shrink-0" />
-                <span>Low</span>
-              </button>
+            <div className="grid grid-cols-4 gap-1.5">
+              {([
+                { id: 'urgent', label: 'Urgent', dot: 'bg-danger' },
+                { id: 'high', label: 'High', dot: 'bg-warn' },
+                { id: 'medium', label: 'Medium', dot: 'bg-accent' },
+                { id: 'low', label: 'Low', dot: 'bg-ink-3' },
+              ] as const).map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setPriority(option.id)}
+                  className={`flex items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-[11px] font-medium transition-colors ${
+                    priority === option.id
+                      ? 'border-ink bg-ink text-paper'
+                      : 'border-line bg-surface text-ink-2 hover:border-line-strong hover:text-ink'
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${option.dot}`} />
+                  <span>{option.label}</span>
+                </button>
+              ))}
             </div>
           </div>
 
           {/* Folder / Collection Selector */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
-                <Folder className="w-3.5 h-3.5 text-blue-600" />
-                <span>Folder / Type Collection</span>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.16em] text-ink-3">
+                <Folder className="h-3 w-3" />
+                <span>Collection</span>
               </label>
               {onCreateFolder && !isCreatingFolder && (
                 <button
                   type="button"
                   onClick={() => setIsCreatingFolder(true)}
-                  className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer font-medium"
+                  className="flex items-center gap-1 text-[11px] font-medium text-accent hover:underline"
                 >
-                  <FolderPlus className="w-3 h-3" />
-                  <span>+ New Folder</span>
+                  <FolderPlus className="h-3 w-3" />
+                  <span>New collection</span>
                 </button>
               )}
             </div>
 
             {isCreatingFolder ? (
-              <form onSubmit={handleCreateNewFolder} className="flex items-center gap-2 p-1.5 bg-neutral-50 dark:bg-neutral-950 border border-blue-600 rounded-md">
+              <form onSubmit={handleCreateNewFolder} className="flex items-center gap-2 rounded-lg border border-accent bg-surface p-1">
                 <input
                   type="text"
                   value={newFolderName}
                   onChange={(e) => setNewFolderName(e.target.value)}
-                  placeholder="New folder name (e.g. Finance, Study, Project)..."
+                  placeholder="Collection name"
                   autoFocus
-                  className="w-full bg-transparent text-xs text-neutral-900 dark:text-neutral-100 outline-none px-2"
+                  className="w-full bg-transparent px-2 text-[12px] text-ink outline-none placeholder:text-ink-3"
                 />
                 <button
                   type="submit"
                   disabled={!newFolderName.trim()}
-                  className="px-2.5 py-1 bg-blue-600 text-white rounded text-[11px] font-semibold disabled:opacity-40 cursor-pointer"
+                  className="rounded bg-ink px-2.5 py-1 text-[11px] font-semibold text-paper disabled:opacity-40"
                 >
                   Create
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsCreatingFolder(false)}
-                  className="text-neutral-400 hover:text-neutral-900 px-1 text-xs cursor-pointer"
+                  aria-label="Cancel"
+                  className="px-1 text-ink-3 hover:text-ink"
                 >
-                  ✕
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </form>
             ) : (
               <select
                 value={listId}
                 onChange={(e) => setListId(e.target.value)}
-                className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-md px-3 py-2 text-xs text-neutral-900 dark:text-neutral-100 outline-none cursor-pointer focus:border-blue-600"
+                className="w-full cursor-pointer rounded-lg border border-line bg-paper px-3 py-2 text-[12.5px] text-ink outline-none transition-colors focus:border-accent"
               >
                 {lists.map((folder) => (
                   <option key={folder.id} value={folder.id}>
-                    📁 {folder.title} {folder.folderType ? `(${folder.folderType})` : ''}
+                    {folder.title}
                   </option>
                 ))}
               </select>
             )}
           </div>
 
-          {/* Due Date & Time with Quick Presets */}
+          {/* Due Date & Time */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[11px] font-mono uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-neutral-400" />
-                <span>Due Date & Scheduling</span>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.16em] text-ink-3">
+                <Calendar className="h-3 w-3" />
+                <span>Due date</span>
               </label>
 
               <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => handleSetQuickDate('today')}
-                  className="px-2 py-0.5 text-[10px] font-mono rounded bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 text-neutral-600 dark:text-neutral-300 cursor-pointer"
-                >
-                  Today
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSetQuickDate('tomorrow')}
-                  className="px-2 py-0.5 text-[10px] font-mono rounded bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 text-neutral-600 dark:text-neutral-300 cursor-pointer"
-                >
-                  Tomorrow
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSetQuickDate('nextWeek')}
-                  className="px-2 py-0.5 text-[10px] font-mono rounded bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 text-neutral-600 dark:text-neutral-300 cursor-pointer"
-                >
-                  +7d
-                </button>
+                {([
+                  { id: 'today', label: 'Today' },
+                  { id: 'tomorrow', label: 'Tomorrow' },
+                  { id: 'nextWeek', label: '+7d' },
+                ] as const).map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => handleSetQuickDate(preset.id)}
+                    className="rounded px-1.5 py-0.5 font-mono text-[9.5px] text-ink-3 transition-colors hover:bg-subtle hover:text-ink"
+                  >
+                    {preset.label}
+                  </button>
+                ))}
                 {due && (
                   <button
                     type="button"
                     onClick={() => handleSetQuickDate('clear')}
-                    className="px-2 py-0.5 text-[10px] font-mono rounded text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer"
+                    className="rounded px-1.5 py-0.5 font-mono text-[9.5px] text-ink-3 transition-colors hover:bg-danger-soft hover:text-danger"
                   >
                     Clear
                   </button>
@@ -370,103 +343,99 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <input
-                  type="date"
-                  value={due}
-                  onChange={(e) => {
-                    setDue(e.target.value);
-                    setCalendarDate(e.target.value);
-                  }}
-                  className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-md px-3 py-1.5 text-xs text-neutral-900 dark:text-neutral-100 font-mono outline-none focus:border-blue-600"
-                />
-              </div>
-
-              <div>
-                <input
-                  type="time"
-                  value={dueTime}
-                  onChange={(e) => {
-                    setDueTime(e.target.value);
-                    setCalendarStartTime(e.target.value);
-                  }}
-                  placeholder="Set time"
-                  className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-md px-3 py-1.5 text-xs text-neutral-900 dark:text-neutral-100 font-mono outline-none focus:border-blue-600"
-                />
-              </div>
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="date"
+                value={due}
+                onChange={(e) => {
+                  setDue(e.target.value);
+                  setCalendarDate(e.target.value);
+                }}
+                aria-label="Due date"
+                className="w-full rounded-lg border border-line bg-paper px-3 py-2 font-mono text-[11.5px] text-ink outline-none transition-colors focus:border-accent"
+              />
+              <input
+                type="time"
+                value={dueTime}
+                onChange={(e) => {
+                  setDueTime(e.target.value);
+                  setCalendarStartTime(e.target.value);
+                }}
+                aria-label="Due time"
+                className="w-full rounded-lg border border-line bg-paper px-3 py-2 font-mono text-[11.5px] text-ink outline-none transition-colors focus:border-accent"
+              />
             </div>
           </div>
 
-          {/* Notes / Description */}
+          {/* Notes */}
           <div>
-            <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1">
-              Description & Notes
+            <label className="mb-1.5 block font-mono text-[9px] uppercase tracking-[0.16em] text-ink-3">
+              Notes
             </label>
             <textarea
               rows={4}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Add links, subtasks, context, or meeting notes..."
-              className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-md px-3 py-2 text-xs text-neutral-900 dark:text-neutral-100 outline-none leading-relaxed resize-none focus:border-blue-600 transition"
+              placeholder="Add links, context, or meeting notes…"
+              className="w-full resize-none rounded-lg border border-line bg-paper px-3 py-2.5 text-[12px] leading-relaxed text-ink outline-none transition-colors placeholder:text-ink-3 focus:border-accent"
             />
           </div>
 
           {/* Google Calendar Section */}
-          <div className="p-3 bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-md space-y-2">
+          <div className="space-y-2 rounded-lg border border-line bg-paper p-3">
             <div className="flex items-center justify-between">
-              <span className="font-mono text-[10px] uppercase tracking-wider text-neutral-500 flex items-center gap-1.5">
-                <CalendarPlus className="w-3.5 h-3.5 text-blue-600" />
-                <span>Google Calendar Time-Block</span>
+              <span className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.14em] text-ink-3">
+                <CalendarPlus className="h-3 w-3" />
+                <span>Calendar block</span>
               </span>
               {task.calendarEventId && (
-                <span className="text-[10px] font-mono text-blue-600 dark:text-blue-400 font-semibold flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" />
+                <span className="flex items-center gap-1 font-mono text-[9px] uppercase tracking-wide text-accent">
+                  <CheckCircle2 className="h-3 w-3" />
                   <span>Scheduled</span>
                 </span>
               )}
             </div>
 
             {task.calendarEventId ? (
-              <div className="flex items-center justify-between pt-1 text-xs">
-                <span className="text-neutral-600 dark:text-neutral-400 font-mono text-[11px]">
-                  {task.calendarScheduledTime ? `${task.calendarScheduledTime.start.split('T')[1]?.substring(0, 5)} - ${task.calendarScheduledTime.end.split('T')[1]?.substring(0, 5)}` : 'Event synced on calendar'}
+              <div className="flex items-center justify-between pt-1">
+                <span className="font-mono text-[11px] text-ink-2">
+                  {task.calendarScheduledTime ? `${task.calendarScheduledTime.start.split('T')[1]?.substring(0, 5)} – ${task.calendarScheduledTime.end.split('T')[1]?.substring(0, 5)}` : 'Event synced on calendar'}
                 </span>
                 <button
                   type="button"
                   onClick={() => onRemoveFromCalendar(task)}
-                  className="text-xs text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
+                  className="text-[11px] font-medium text-danger hover:underline"
                 >
-                  Remove Event
+                  Remove event
                 </button>
               </div>
             ) : hasGoogleCalendarAuth ? (
               <div className="space-y-2 pt-1">
                 <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <label className="text-[10px] font-mono text-neutral-400 block mb-0.5">Date</label>
+                    <label className="mb-1 block font-mono text-[9px] uppercase tracking-wide text-ink-3">Date</label>
                     <input
                       type="date"
                       value={calendarDate}
                       onChange={(e) => setCalendarDate(e.target.value)}
-                      className="w-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded px-2 py-1 text-xs font-mono"
+                      className="w-full rounded-md border border-line bg-surface px-2 py-1 font-mono text-[10.5px] text-ink outline-none focus:border-accent"
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-mono text-neutral-400 block mb-0.5">Start Time</label>
+                    <label className="mb-1 block font-mono text-[9px] uppercase tracking-wide text-ink-3">Start</label>
                     <input
                       type="time"
                       value={calendarStartTime}
                       onChange={(e) => setCalendarStartTime(e.target.value)}
-                      className="w-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded px-2 py-1 text-xs font-mono"
+                      className="w-full rounded-md border border-line bg-surface px-2 py-1 font-mono text-[10.5px] text-ink outline-none focus:border-accent"
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-mono text-neutral-400 block mb-0.5">Duration</label>
+                    <label className="mb-1 block font-mono text-[9px] uppercase tracking-wide text-ink-3">Length</label>
                     <select
                       value={calendarDuration}
                       onChange={(e) => setCalendarDuration(Number(e.target.value))}
-                      className="w-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded px-2 py-1 text-xs"
+                      className="w-full cursor-pointer rounded-md border border-line bg-surface px-2 py-1 text-[10.5px] text-ink outline-none focus:border-accent"
                     >
                       <option value={15}>15 min</option>
                       <option value={30}>30 min</option>
@@ -479,57 +448,71 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 <button
                   type="button"
                   onClick={handleTriggerScheduleCalendar}
-                  className="w-full py-1.5 px-3 border border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded text-xs font-medium transition cursor-pointer flex items-center justify-center gap-1.5"
+                  className="flex w-full items-center justify-center gap-1.5 rounded-md border border-line bg-surface px-3 py-1.5 text-[11px] font-medium text-ink-2 transition-colors hover:border-line-strong hover:text-ink"
                 >
-                  <CalendarPlus className="w-3.5 h-3.5" />
-                  <span>Block Time on Google Calendar</span>
+                  <CalendarPlus className="h-3.5 w-3.5" />
+                  <span>Block time on Google Calendar</span>
                 </button>
               </div>
             ) : (
-              <p className="text-[11px] text-neutral-400">
-                Sign in with Google in the top bar to block this task on your Google Calendar.
+              <p className="text-[11px] leading-relaxed text-ink-3">
+                Sign in with Google to block this task on your calendar.
               </p>
             )}
           </div>
 
           {/* Sync & Timestamp Info */}
-          <div className="pt-1 flex items-center justify-between text-[10px] font-mono text-neutral-400 dark:text-neutral-500">
-            <span>Created: {new Date(task.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+          <div className="flex items-center justify-between font-mono text-[9px] uppercase tracking-wide text-ink-3">
             <span>
-              {task.googleTaskId ? 'Synced with Google Tasks' : 'Stored locally (offline ready)'}
+              Created {new Date(task.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
             </span>
+            <span>{task.googleTaskId ? 'Synced with Google Tasks' : 'Stored locally'}</span>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between pt-3.5 border-t border-neutral-200/80 dark:border-neutral-800/80">
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              onDelete(task.id, task.title);
-            }}
-            className="text-xs text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer font-medium"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>Delete Task</span>
-          </button>
+        <div className="flex items-center justify-between border-t border-line pt-4">
+          <div className="flex items-center gap-1">
+            {onCopy && (
+              <button
+                type="button"
+                onClick={() => onCopy(task)}
+                className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-medium text-ink-2 transition-colors hover:bg-subtle hover:text-ink"
+                title="Copy task details to clipboard"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                <span>Copy</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onDelete(task.id, task.title);
+              }}
+              className="flex items-center gap-1 rounded-md px-2 py-1.5 text-[11px] font-medium text-danger transition-colors hover:bg-danger-soft"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete</span>
+            </button>
+          </div>
 
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-1.5 text-xs text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 cursor-pointer"
+              className="rounded-md px-3 py-1.5 text-[11.5px] font-medium text-ink-2 transition-colors hover:bg-subtle hover:text-ink"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSave}
-              className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition shadow-2xs cursor-pointer"
+              className="flex items-center gap-1.5 rounded-md bg-ink px-3.5 py-1.5 text-[11.5px] font-semibold text-paper transition-opacity hover:opacity-90"
             >
               <Check className="w-3.5 h-3.5" />
-              <span>{saveFeedback ? 'Saved!' : 'Save Changes'}</span>
+              <span>{saveFeedback ? 'Saved!' : 'Save changes'}</span>
             </button>
           </div>
         </div>
@@ -537,3 +520,4 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     </div>
   );
 };
+

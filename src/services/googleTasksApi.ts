@@ -4,30 +4,39 @@ const TASKS_BASE_URL = 'https://tasks.googleapis.com/tasks/v1';
 
 export interface GoogleTaskPayload {
   id?: string;
-  title: string;
+  title?: string;
   notes?: string;
   status?: 'needsAction' | 'completed';
-  due?: string; // RFC 3339 timestamp
+  due?: string | null; // RFC 3339 timestamp; null clears an existing due date
   completed?: string;
 }
 
 export const googleTasksService = {
   // Fetch all user task lists
   async getTaskLists(accessToken: string): Promise<TaskList[]> {
-    const response = await fetch(`${TASKS_BASE_URL}/users/@me/lists`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    const items: any[] = [];
+    let pageToken: string | undefined;
 
-    if (!response.ok) {
-      const err = await response.text();
-      throw new Error(`Failed to fetch Google Task lists: ${response.status} ${err}`);
-    }
+    do {
+      const url = new URL(`${TASKS_BASE_URL}/users/@me/lists`);
+      url.searchParams.set('maxResults', '100');
+      if (pageToken) url.searchParams.set('pageToken', pageToken);
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-    const data = await response.json();
-    const items = data.items || [];
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`Failed to fetch Google Task lists: ${response.status} ${err}`);
+      }
+
+      const data = await response.json();
+      items.push(...(data.items || []));
+      pageToken = data.nextPageToken;
+    } while (pageToken);
 
     const colors = [
       '#2563eb', // Color 1: Cobalt Blue
@@ -87,23 +96,31 @@ export const googleTasksService = {
 
   // Fetch all tasks for a specific task list
   async getTasks(accessToken: string, listId: string): Promise<TaskItem[]> {
-    const response = await fetch(
-      `${TASKS_BASE_URL}/lists/${listId}/tasks?showCompleted=true&showHidden=true&maxResults=100`,
-      {
+    const items: any[] = [];
+    let pageToken: string | undefined;
+
+    do {
+      const url = new URL(`${TASKS_BASE_URL}/lists/${listId}/tasks`);
+      url.searchParams.set('showCompleted', 'true');
+      url.searchParams.set('showHidden', 'true');
+      url.searchParams.set('maxResults', '100');
+      if (pageToken) url.searchParams.set('pageToken', pageToken);
+      const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
+      });
+
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`Failed to fetch tasks for list ${listId}: ${response.status} ${err}`);
       }
-    );
 
-    if (!response.ok) {
-      const err = await response.text();
-      throw new Error(`Failed to fetch tasks for list ${listId}: ${response.status} ${err}`);
-    }
-
-    const data = await response.json();
-    const items = data.items || [];
+      const data = await response.json();
+      items.push(...(data.items || []));
+      pageToken = data.nextPageToken;
+    } while (pageToken);
 
     return items
       .filter((item: any) => !item.deleted)
@@ -116,7 +133,7 @@ export const googleTasksService = {
           try {
             const dateObj = new Date(item.due);
             if (!isNaN(dateObj.getTime())) {
-              dueDate = dateObj.toISOString().split('T')[0];
+              dueDate = item.due.slice(0, 10);
               // Check if original timestamp has specific time
               const hours = dateObj.getUTCHours();
               const mins = dateObj.getUTCMinutes();
@@ -201,9 +218,11 @@ export const googleTasksService = {
     taskId: string,
     updates: Partial<TaskItem>
   ): Promise<void> {
-    const payload: GoogleTaskPayload = {
-      title: updates.title || '',
-    };
+    const payload: GoogleTaskPayload = {};
+
+    if (updates.title !== undefined) {
+      payload.title = updates.title;
+    }
 
     if (updates.notes !== undefined) {
       payload.notes = updates.notes;
@@ -213,8 +232,10 @@ export const googleTasksService = {
       payload.status = updates.completed ? 'completed' : 'needsAction';
     }
 
-    if (updates.due) {
-      payload.due = new Date(`${updates.due}T00:00:00.000Z`).toISOString();
+    if (Object.prototype.hasOwnProperty.call(updates, 'due')) {
+      payload.due = updates.due
+        ? new Date(`${updates.due}T00:00:00.000Z`).toISOString()
+        : null;
     }
 
     const response = await fetch(`${TASKS_BASE_URL}/lists/${listId}/tasks/${taskId}`, {
@@ -229,6 +250,23 @@ export const googleTasksService = {
     if (!response.ok) {
       const err = await response.text();
       throw new Error(`Failed to update task in Google Tasks: ${response.status} ${err}`);
+    }
+  },
+
+  // Move a task between Google Task lists. PATCH cannot change a task's list.
+  async moveTask(accessToken: string, sourceListId: string, taskId: string, destinationListId: string): Promise<void> {
+    if (sourceListId === destinationListId) return;
+
+    const url = new URL(`${TASKS_BASE_URL}/lists/${sourceListId}/tasks/${taskId}/move`);
+    url.searchParams.set('destinationTasklist', destinationListId);
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`Failed to move task: ${response.status} ${err}`);
     }
   },
 

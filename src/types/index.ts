@@ -61,6 +61,7 @@ export type SyncActionType =
   | 'DELETE_TASK' 
   | 'CREATE_LIST' 
   | 'DELETE_LIST' 
+  | 'MOVE_TASK'
   | 'SCHEDULE_CALENDAR_EVENT'
   | 'DELETE_CALENDAR_EVENT';
 
