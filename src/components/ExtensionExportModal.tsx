@@ -63,11 +63,11 @@ export const ExtensionExportModal: React.FC<ExtensionExportModalProps> = ({
     },
     {
       id: 'version_info',
-      title: 'Package Version 1.3.0 (Security Hardening & Refresh)',
+      title: 'Package Version 1.3.2 (Expanded 580×600px Popup & Security Patch)',
       location: 'Package tab → Upload New Package',
-      requiredFor: 'Version 1.3.0 Release Update',
-      value: 'chronotask-extension-v1.3.0.zip',
-      instruction: 'Upload the v1.3.0 ZIP file. Increments published version 1.2.0. Adds security hardening (strict origin-scoped host permissions, DOM XSS entity escaping, strict tab matching, and bi-directional sync validation), editorial dark mode, keyboard shortcuts, and full Google Tasks sync with https://task-manager-with-google.vercel.app.'
+      requiredFor: 'Version 1.3.2 Release Update',
+      value: 'chronotask-extension-v1.3.2.zip',
+      instruction: 'Upload the v1.3.2 ZIP file. Increments published version. Expands popup dimensions to a spacious 580×600px with enhanced typography, DOM XSS entity escaping, strict host permissions, and sync bridge validation.'
     },
     {
       id: 'single_purpose',
@@ -385,7 +385,7 @@ Developer Contact: dagmayalew489@gmail.com`;
 
               <div className="border border-line rounded-md p-4 space-y-3 bg-subtle/60">
                 <h4 className="font-semibold text-xs uppercase tracking-wider font-mono text-ink">
-                  How Vercel Web App & Extension Real-Time Sync Works (v1.3.0):
+                  How Vercel Web App & Extension Real-Time Sync Works (v1.3.2):
                 </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

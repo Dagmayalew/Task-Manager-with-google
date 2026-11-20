@@ -42,7 +42,7 @@ const modeOptions: Array<{
   icon: React.ElementType;
 }> = [
   { id: 'desktop', label: 'Full workspace', hint: 'Desktop', icon: Monitor },
-  { id: 'popup', label: 'Extension popup', hint: '380px', icon: Smartphone },
+  { id: 'popup', label: 'Extension popup', hint: '580px', icon: Smartphone },
   { id: 'sidepanel', label: 'Side panel', hint: '360px', icon: PanelRight },
 ];
 

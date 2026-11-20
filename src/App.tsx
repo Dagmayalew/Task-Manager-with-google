@@ -1658,7 +1658,7 @@ export default function App() {
           <div className="flex-1 bg-subtle flex flex-col items-center justify-center p-6">
             <div className="mb-3 text-xs text-ink-3 flex items-center gap-2">
               <Smartphone className="w-3.5 h-3.5" />
-              <span>Chrome extension popup · 380 × 560</span>
+              <span>Chrome extension popup · 580 × 600</span>
               <button
                 onClick={() => handleSetDisplayMode('desktop')}
                 className="text-ink font-medium hover:underline flex items-center gap-1 ml-2"
@@ -1667,7 +1667,7 @@ export default function App() {
               </button>
             </div>
 
-            <div className="w-[380px] h-[560px] bg-surface border border-line rounded-md flex flex-col overflow-hidden relative">
+            <div className="w-[580px] h-[600px] bg-surface border border-line rounded-md flex flex-col overflow-hidden relative">
               <div className="px-3.5 py-2.5 bg-paper border-b border-line flex items-center justify-between">
                 <span className="font-semibold text-xs text-ink tracking-tight">Chronotask</span>
                 <span className="font-mono text-[10px] text-ink-3">

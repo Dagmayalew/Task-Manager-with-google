@@ -47,7 +47,7 @@ export const generateExtensionFiles = (clientId?: string): ExtensionFile[] => {
   const manifestJson = {
     manifest_version: 3,
     name: 'Chronotask - Task Manager & Calendar Sync',
-    version: '1.3.0',
+    version: '1.3.2',
     description: 'Minimalist personal task manager with folders, priority sorting, offline access, side panel, and Google Tasks sync.',
     permissions: [
       'storage',
@@ -100,9 +100,9 @@ export const generateExtensionFiles = (clientId?: string): ExtensionFile[] => {
     }
   };
 
-  const backgroundJs = `// Chronotask Service Worker v1.3.0
+  const backgroundJs = `// Chronotask Service Worker v1.3.2
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('Chronotask extension v1.3.0 installed successfully.');
+  console.log('Chronotask extension v1.3.2 installed successfully.');
   updateBadge();
 });
 
@@ -315,9 +315,9 @@ chrome.runtime.onMessage.addListener((message) => {
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  width: 440px;
+  width: 580px;
   max-width: 100vw;
-  height: 580px;
+  height: 600px;
   max-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -326,8 +326,8 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-ui);
-  font-size: 13px;
-  line-height: 1.4;
+  font-size: 14px;
+  line-height: 1.45;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -466,9 +466,9 @@ button { cursor: pointer; }
 /* Filters --------------------------------------------------------------- */
 .filter-controls {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  gap: 8px;
   padding: 8px 14px;
   background: var(--paper);
   border-bottom: 1px solid var(--line);
@@ -482,12 +482,12 @@ button { cursor: pointer; }
   background: var(--surface);
 }
 .tab {
-  padding: 4px 9px;
+  padding: 4px 10px;
   border: 0;
   border-radius: 3px;
   background: transparent;
   color: var(--ink-2);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
   transition: color 0.14s ease, background 0.14s ease;
 }
@@ -496,12 +496,11 @@ button { cursor: pointer; }
 
 .filter-right {
   display: flex;
-  flex: 1 1 100%;
   align-items: center;
   gap: 6px;
   min-width: 0;
 }
-.filter-right .mini-select { flex: 1 1 auto; max-width: none; min-width: 0; }
+.filter-right .mini-select { max-width: 160px; }
 
 .sort-btn, .copy-folder-btn {
   flex: 0 0 auto;
@@ -581,9 +580,9 @@ button { cursor: pointer; }
 .task-content { flex: 1; min-width: 0; }
 
 .task-title {
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 500;
-  line-height: 1.35;
+  line-height: 1.4;
   color: var(--ink);
   overflow-wrap: anywhere;
 }
@@ -830,7 +829,7 @@ textarea.form-input { min-height: 66px; resize: vertical; }
   * { transition-duration: 0.001ms !important; }
 }`
 
-  const popupJs = `// Chronotask Extension Popup Logic v1.3.0
+  const popupJs = `// Chronotask Extension Popup Logic v1.3.2
 let currentFilter = 'today';
 let selectedFolderId = 'all';
 let prioritySortHighToLow = true;
@@ -1544,7 +1543,7 @@ async function updateSyncStatus() {
 }
 `;
 
-  const contentJs = `// Chronotask Extension Sync Bridge v1.3.0
+  const contentJs = `// Chronotask Extension Sync Bridge v1.3.2
 // Synchronizes tasks and folders bidirectionally between Chronotask Web App and chrome.storage.local
 
 (function() {
@@ -1946,7 +1945,7 @@ export const exportExtensionAsZip = async (clientId?: string): Promise<void> => 
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'chronotask-extension-v1.3.0.zip';
+  a.download = 'chronotask-extension-v1.3.2.zip';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
