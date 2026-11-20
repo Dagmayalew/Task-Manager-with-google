@@ -12,5 +12,6 @@ coverage/
 # Firebase config with real credentials — copy firebase-applet-config.example.json
 firebase-applet-config.json
 
-# Built extension ZIPs — distributed via GitHub Releases, not committed to source
+# Built extension ZIPs and unzipped folders
 *.zip
+chronotask-extension-*/

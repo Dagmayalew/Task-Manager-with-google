@@ -177,7 +177,13 @@ chrome.runtime.onMessage.addListener((message) => {
   </header>
 
   <section class="quick-add">
-    <input type="text" id="quickTaskInput" placeholder="Add a task… (or press Enter)" aria-label="New task title" autofocus>
+    <div class="quick-input-row">
+      <input type="text" id="quickTaskInput" placeholder="Add a task…" aria-label="New task title" autofocus>
+      <button id="quickAddBtn" class="btn-quick-add" type="button" aria-label="Add task">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <span>Add Task</span>
+      </button>
+    </div>
     <div class="quick-add-bar">
       <select id="quickFolderSelect" class="mini-select" aria-label="Folder">
         <option value="default_my_tasks">General</option>
@@ -191,7 +197,7 @@ chrome.runtime.onMessage.addListener((message) => {
         <option value="medium" selected>Medium</option>
         <option value="low">Low</option>
       </select>
-      <button id="quickAddBtn" class="btn-quick-add" type="button" aria-label="Add task">+ Add Task</button>
+      <span class="enter-badge">↵ Enter</span>
     </div>
   </section>
 
@@ -431,8 +437,14 @@ button { cursor: pointer; }
   background: var(--surface);
   border-bottom: 1px solid var(--line);
 }
-.quick-add input[type="text"] {
-  width: 100%;
+.quick-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.quick-input-row input[type="text"] {
+  flex: 1;
+  min-width: 0;
   padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -442,13 +454,45 @@ button { cursor: pointer; }
   outline: none;
   transition: border-color 0.14s ease, box-shadow 0.14s ease;
 }
-.quick-add input[type="text"]::placeholder { color: var(--ink-3); }
-.quick-add input[type="text"]:focus {
+.quick-input-row input[type="text"]::placeholder { color: var(--ink-3); }
+.quick-input-row input[type="text"]:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-soft);
 }
-.quick-add-bar { display: flex; gap: 6px; margin-top: 6px; }
-
+.btn-quick-add {
+  flex-shrink: 0;
+  height: 33px;
+  padding: 0 12px;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease, opacity 0.14s ease;
+}
+.btn-quick-add:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.btn-quick-add:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.quick-add-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
 .mini-select {
   max-width: 132px;
   padding: 4px 6px;
@@ -464,32 +508,15 @@ button { cursor: pointer; }
 }
 .mini-select:focus-visible { border-color: var(--accent); }
 
-.btn-quick-add {
+.enter-badge {
   margin-left: auto;
-  padding: 4px 10px;
-  border: 1px solid var(--ink);
-  border-radius: 4px;
-  background: var(--ink);
-  color: var(--paper);
-  font-family: var(--font-sans);
-  font-size: 11px;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease, opacity 0.14s ease;
-}
-.btn-quick-add:hover {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
-}
-.btn-quick-add:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--ink-3);
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  user-select: none;
 }
 
 /* Filters --------------------------------------------------------------- */
@@ -1781,7 +1808,13 @@ async function updateSyncStatus() {
   </header>
 
   <section class="quick-add">
-    <input type="text" id="quickTaskInput" placeholder="Add a task… (or press Enter)" aria-label="New task title" autofocus>
+    <div class="quick-input-row">
+      <input type="text" id="quickTaskInput" placeholder="Add a task…" aria-label="New task title" autofocus>
+      <button id="quickAddBtn" class="btn-quick-add" type="button" aria-label="Add task">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <span>Add Task</span>
+      </button>
+    </div>
     <div class="quick-add-bar">
       <select id="quickFolderSelect" class="mini-select" aria-label="Folder">
         <option value="default_my_tasks">General</option>
@@ -1795,7 +1828,7 @@ async function updateSyncStatus() {
         <option value="medium" selected>Medium</option>
         <option value="low">Low</option>
       </select>
-      <button id="quickAddBtn" class="btn-quick-add" type="button" aria-label="Add task">+ Add Task</button>
+      <span class="enter-badge">↵ Enter</span>
     </div>
   </section>
 
