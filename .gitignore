@@ -4,5 +4,13 @@ dist/
 coverage/
 .DS_Store
 *.log
+
+# Environment variables — copy .env.example to .env and fill in your values
 .env*
 !.env.example
+
+# Firebase config with real credentials — copy firebase-applet-config.example.json
+firebase-applet-config.json
+
+# Built extension ZIPs — distributed via GitHub Releases, not committed to source
+*.zip
