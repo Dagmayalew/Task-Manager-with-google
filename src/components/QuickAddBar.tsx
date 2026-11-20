@@ -105,9 +105,10 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
           <button
             type="submit"
             disabled={!title.trim()}
-            className="shrink-0 rounded-md bg-ink px-3 py-1.5 text-[11.5px] font-semibold text-paper transition-opacity disabled:cursor-not-allowed disabled:opacity-30"
+            className="flex shrink-0 items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-[11.5px] font-semibold text-paper transition-opacity disabled:cursor-not-allowed disabled:opacity-30"
           >
-            Add task
+            <Plus className="h-3.5 w-3.5" />
+            Add Task
           </button>
         </div>
 

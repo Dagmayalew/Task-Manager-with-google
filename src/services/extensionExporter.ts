@@ -177,7 +177,7 @@ chrome.runtime.onMessage.addListener((message) => {
   </header>
 
   <section class="quick-add">
-    <input type="text" id="quickTaskInput" placeholder="Add a task… (Enter)" aria-label="New task title" autofocus>
+    <input type="text" id="quickTaskInput" placeholder="Add a task… (or press Enter)" aria-label="New task title" autofocus>
     <div class="quick-add-bar">
       <select id="quickFolderSelect" class="mini-select" aria-label="Folder">
         <option value="default_my_tasks">General</option>
@@ -191,6 +191,7 @@ chrome.runtime.onMessage.addListener((message) => {
         <option value="medium" selected>Medium</option>
         <option value="low">Low</option>
       </select>
+      <button id="quickAddBtn" class="btn-quick-add" type="button" aria-label="Add task">+ Add Task</button>
     </div>
   </section>
 
@@ -462,6 +463,34 @@ button { cursor: pointer; }
   outline: none;
 }
 .mini-select:focus-visible { border-color: var(--accent); }
+
+.btn-quick-add {
+  margin-left: auto;
+  padding: 4px 10px;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease, opacity 0.14s ease;
+}
+.btn-quick-add:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.btn-quick-add:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 
 /* Filters --------------------------------------------------------------- */
 .filter-controls {
@@ -817,6 +846,7 @@ textarea.form-input { min-height: 66px; resize: vertical; }
   #syncLabel { display: none; }
   .quick-add-bar { flex-wrap: wrap; }
   .quick-add-bar .mini-select { flex: 1 1 90px; max-width: none; min-width: 0; }
+  .btn-quick-add { width: 100%; margin-left: 0; }
   .filter-right { flex-wrap: wrap; }
   .filter-right .mini-select { flex: 1 1 100%; }
   .footer { flex-wrap: wrap; }
@@ -898,19 +928,33 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   const taskInput = document.getElementById('quickTaskInput');
+  const quickAddBtn = document.getElementById('quickAddBtn');
+
+  const submitQuickTask = async () => {
+    if (!taskInput) return;
+    const title = taskInput.value.trim();
+    if (!title) return;
+    const folderEl = document.getElementById('quickFolderSelect');
+    const folder = folderEl ? folderEl.value : 'default_my_tasks';
+    const priorityEl = document.getElementById('quickPrioritySelect');
+    const priority = priorityEl ? priorityEl.value : 'medium';
+    await addTask(title, folder, priority);
+    taskInput.value = '';
+    renderTasks();
+    taskInput.focus();
+  };
+
   if (taskInput) {
     taskInput.addEventListener('keydown', async (e) => {
       if (e.key === 'Enter') {
-        const title = e.target.value.trim();
-        if (!title) return;
-        const folderEl = document.getElementById('quickFolderSelect');
-        const folder = folderEl ? folderEl.value : 'default_my_tasks';
-        const priorityEl = document.getElementById('quickPrioritySelect');
-        const priority = priorityEl ? priorityEl.value : 'medium';
-        await addTask(title, folder, priority);
-        e.target.value = '';
-        renderTasks();
+        await submitQuickTask();
       }
+    });
+  }
+
+  if (quickAddBtn) {
+    quickAddBtn.addEventListener('click', async () => {
+      await submitQuickTask();
     });
   }
 
@@ -1737,7 +1781,7 @@ async function updateSyncStatus() {
   </header>
 
   <section class="quick-add">
-    <input type="text" id="quickTaskInput" placeholder="Add a task… (Enter)" aria-label="New task title" autofocus>
+    <input type="text" id="quickTaskInput" placeholder="Add a task… (or press Enter)" aria-label="New task title" autofocus>
     <div class="quick-add-bar">
       <select id="quickFolderSelect" class="mini-select" aria-label="Folder">
         <option value="default_my_tasks">General</option>
@@ -1751,6 +1795,7 @@ async function updateSyncStatus() {
         <option value="medium" selected>Medium</option>
         <option value="low">Low</option>
       </select>
+      <button id="quickAddBtn" class="btn-quick-add" type="button" aria-label="Add task">+ Add Task</button>
     </div>
   </section>
 
