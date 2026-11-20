@@ -17,6 +17,15 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
+// Warn clearly in console if env vars are missing
+if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+  console.error(
+    '[Chronotask] Firebase env vars are missing. ' +
+    'Copy .env.example to .env and fill in VITE_FIREBASE_* values, ' +
+    'or add them in your Vercel project settings.'
+  );
+}
+
 // Reuse existing Firebase app instance if already initialized
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
