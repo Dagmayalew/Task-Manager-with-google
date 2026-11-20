@@ -10,7 +10,6 @@ import {
   BookOpen
 } from 'lucide-react';
 import { generateExtensionFiles, exportExtensionAsZip, ExtensionFile } from '../services/extensionExporter';
-import firebaseConfig from '../../firebase-applet-config.json';
 
 interface ExtensionExportModalProps {
   isOpen: boolean;
@@ -29,7 +28,7 @@ export const ExtensionExportModal: React.FC<ExtensionExportModalProps> = ({
 
   if (!isOpen) return null;
 
-  const clientId = firebaseConfig.oAuthClientId || '';
+  const clientId = import.meta.env.VITE_FIREBASE_OAUTH_CLIENT_ID || '';
   const files: ExtensionFile[] = generateExtensionFiles(clientId);
 
   // Public production HTTPS URL on Vercel

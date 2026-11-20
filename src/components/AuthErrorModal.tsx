@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { X, ExternalLink, Copy, Check, ShieldAlert, AlertCircle } from 'lucide-react';
-import firebaseConfig from '../../firebase-applet-config.json';
 
 interface AuthErrorModalProps {
   isOpen: boolean;
@@ -20,7 +19,7 @@ export const AuthErrorModal: React.FC<AuthErrorModalProps> = ({
   if (!isOpen) return null;
 
   const currentDomain = typeof window !== 'undefined' ? window.location.hostname : 'task-manager-with-google.vercel.app';
-  const projectId = firebaseConfig.projectId || 'gen-lang-client-0242553286';
+  const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || '';
   const firebaseSettingsUrl = `https://console.firebase.google.com/project/${projectId}/authentication/settings`;
   const gcpCredentialsUrl = `https://console.cloud.google.com/apis/credentials?project=${projectId}`;
 
